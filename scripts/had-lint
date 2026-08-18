@@ -1,0 +1,119 @@
+#!/usr/bin/env python3
+"""had-lint — FLAG (never fix) past-perfect constructions.
+
+Past perfect (had + participle) places an action further back than another
+past. If the sentence has no later past to sit before, the timeline floats
+and simple past is the tense. This program cannot see the anchor. It prints
+every hit. A person asks: where is the later past? No later past → the had
+comes off.
+
+NOT past perfect, so not flagged:
+  had a book / had three days     possession
+  had to leave / had better go    obligation
+  had his hat                     possessive determiner
+
+Tom, 2026-07-17 and 2026-08-18. See feedback-past-perfect-had-overuse.md.
+
+Usage: had-lint FILE [FILE ...]
+Skips fenced code, headings, tables. Always exits 0.
+"""
+import re
+import sys
+
+# Irregular participles. Regular -ed / -en / -t are handled by the suffix.
+IRREGULAR = (
+    "been begun broken brought built bought caught chosen come cut done "
+    "drawn driven drunk eaten fallen fed felt found forgotten forgiven "
+    "frozen given gone grown had heard held hidden hit hurt kept known "
+    "laid led left lent let lost made meant met paid put read rid ridden "
+    "rung risen run said seen sold sent set shaken shown shut sung sunk "
+    "sat slept slid spoken spent spun spread stood stolen stuck struck "
+    "swept swum taken taught torn told thought thrown understood worn "
+    "won written"
+).split()
+
+PART = r"(?:been(?:\s+\w+ing)?|" + "|".join(IRREGULAR) + r"|\w+(?:ed|en|t))"
+
+# Skip possession and obligation after had. Exact words, not prefixes
+# (a bare ^any matches already).
+NOT_PERFECT = {
+    "a", "an", "the", "to", "better",
+    "his", "her", "its", "their", "our", "my", "your",
+    "no", "some", "any", "enough", "more", "less", "many", "much", "few", "several",
+    "this", "that", "these", "those",
+    "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
+}
+
+
+def _skip(word):
+    if not word:
+        return False
+    if word[:1].isdigit():
+        return True
+    return word.lower() in NOT_PERFECT
+
+HAD = re.compile(
+    r"\b(had(?:n't|n’t)?)\s+(?:(\w+)\s+)?(" + PART + r")\b",
+    re.I,
+)
+
+SKIP_PREFIX = ("#", "|", ">")
+
+
+def hits_in(text):
+    out = []
+    for m in HAD.finditer(text):
+        mid, part = m.group(2), m.group(3)
+        if _skip(mid) or _skip(part):
+            continue
+        out.append(m.group(0))
+    return out
+
+
+def scan(path):
+    found = []
+    incode = False
+    with open(path, encoding="utf-8", errors="replace") as fh:
+        for lineno, raw in enumerate(fh, 1):
+            s = raw.strip()
+            if s.startswith("```"):
+                incode = not incode
+                continue
+            if incode or not s or s.startswith(SKIP_PREFIX):
+                continue
+            for span in hits_in(raw):
+                found.append((lineno, span, s))
+    return found
+
+
+def main(paths):
+    total = 0
+    blocks = []
+    for path in paths:
+        rows = scan(path)
+        total += len(rows)
+        if not rows:
+            continue
+        lines = [f"\n== had-lint: {path} ==  ({len(rows)} to read)"]
+        for ln, span, ctx in rows:
+            snippet = ctx if len(ctx) < 110 else ctx[:107] + "…"
+            lines.append(f"    {ln:>4}: “{span}” — {snippet}")
+        blocks.append("\n".join(lines))
+    if total:
+        print("\n".join(blocks))
+        print(
+            "\n  (flags, not fixes — ask of each: where is the later past?"
+            " No later past → simple past. Two hads in one moment leave"
+            " the timeline with no anchor.)"
+        )
+    else:
+        print("had-lint: no past perfect in " + ", ".join(paths))
+    return 0
+
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print(__doc__.strip().split("Usage:")[0])
+        print("Usage: had-lint FILE [FILE ...]")
+        sys.exit(0)
+    sys.exit(main(sys.argv[1:]))

@@ -1,0 +1,146 @@
+#!/usr/bin/env python3
+"""chip-lint — FLAG (never fix) fragments: words or labels, not sentences.
+
+A chip is a stretch punctuated as a sentence that has no finite verb,
+or a short label (Process. Messaging.) standing where a sentence belongs.
+
+Tom, 2026-08-18. See mixed-register skill and
+feedback-write-proper-english-not-chips.md.
+
+Usage: chip-lint FILE [FILE ...]
+Skips fenced code, headings, tables. Always exits 0.
+"""
+import re
+import sys
+
+IRREGULAR = set(
+    """
+    am is are was were be been being
+    have has had do does did
+    go goes went gone
+    say says said
+    get gets got
+    make makes made
+    take takes took taken
+    come comes came
+    see sees saw seen
+    know knows knew known
+    give gives gave given
+    find finds found
+    write writes wrote written
+    sit sits sat
+    stand stands stood
+    keep keeps kept
+    leave leaves left
+    feel feels felt
+    tell tells told
+    become became
+    run runs ran
+    let lets
+    put puts
+    set sets
+    read
+    write writes
+    stay stays
+    ask asks
+    wait waits
+    need needs
+    create creates
+    release releases
+    strike struck
+    """.split()
+)
+
+BE_OR_MODAL = set(
+    "am is are was were be been being "
+    "do does did have has had "
+    "will would can could may might must shall should".split()
+)
+
+SKIP_PREFIX = ("#", "|", ">")
+# A line that is only a speaker tag or a scene slug stays out.
+SCENE = re.compile(r"^(January|February|March|April|May|June|July|August|"
+                   r"September|October|November|December|\d{4})\b")
+
+
+def tokens(s):
+    return re.findall(r"[A-Za-z']+", s)
+
+
+def has_finite_verb(words):
+    for w in words:
+        low = w.lower()
+        if low in IRREGULAR or low in BE_OR_MODAL:
+            return True
+        if len(low) > 3 and low.endswith("ed") and not low.endswith(("ssed", "ness")):
+            return True
+    return False
+
+
+def sentences(text):
+    parts = re.split(r'(?<=[.?!])\s+', text.strip())
+    return [p.strip() for p in parts if p.strip()]
+
+
+def classify(sent):
+    raw = sent.strip()
+    if not raw or raw.startswith(SKIP_PREFIX):
+        return None
+    words = tokens(raw)
+    if not words:
+        return None
+    # Quoted speech of one word ("Audit,") is a chip unless a verb is in it.
+    if has_finite_verb(words):
+        return None
+    if len(words) <= 6:
+        return "LABEL"
+    return "NO-VERB"
+
+
+def scan(path):
+    found = []
+    incode = False
+    with open(path, encoding="utf-8", errors="replace") as fh:
+        for lineno, raw in enumerate(fh, 1):
+            s = raw.strip()
+            if s.startswith("```"):
+                incode = not incode
+                continue
+            if incode or not s or s.startswith(SKIP_PREFIX) or SCENE.match(s):
+                continue
+            for sent in sentences(s):
+                kind = classify(sent)
+                if kind:
+                    found.append((lineno, kind, sent))
+    return found
+
+
+def main(paths):
+    total = 0
+    blocks = []
+    for path in paths:
+        rows = scan(path)
+        total += len(rows)
+        if not rows:
+            continue
+        lines = [f"\n== chip-lint: {path} ==  ({len(rows)} to read)"]
+        for ln, kind, sent in rows:
+            snippet = sent if len(sent) < 110 else sent[:107] + "…"
+            lines.append(f"    {ln:>4}: [{kind}] {snippet}")
+        blocks.append("\n".join(lines))
+    if total:
+        print("\n".join(blocks))
+        print(
+            "\n  (flags, not fixes — a chip is not a sentence."
+            " A person judges earned fragments.)"
+        )
+    else:
+        print("chip-lint: no chips in " + ", ".join(paths))
+    return 0
+
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print("Usage: chip-lint FILE [FILE ...]")
+        sys.exit(0)
+    sys.exit(main(sys.argv[1:]))

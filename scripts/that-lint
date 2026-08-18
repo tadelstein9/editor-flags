@@ -1,0 +1,92 @@
+#!/usr/bin/env python3
+"""that-lint — FLAG (never fix) that/who/which + had(n't) + participle.
+
+A needless relative clause repeats meaning already available in one
+adjective. Negative padding when hadn't restates what un- already said.
+
+  towns that hadn't touched the sickness
+  → towns untouched by the sickness
+
+This program cannot see whether the adjective exists. It prints the clause.
+A person asks: does one word already hold this? Keep the clause when it
+adds an actor, a time, or a fact the adjective cannot hold.
+
+Tom, 2026-08-18. See feedback-needless-relative-clause.md.
+
+Usage: that-lint FILE [FILE ...]
+Skips fenced code, headings, tables. Always exits 0.
+"""
+import re
+import sys
+
+IRREGULAR = (
+    "been begun broken brought built bought caught chosen come cut done "
+    "drawn driven eaten fallen felt found forgotten given gone grown "
+    "heard held hidden hit hurt kept known laid led left lost made "
+    "meant met paid put read rid run said seen sold sent set shown "
+    "shut sat spoken spent stood taken taught torn told thought thrown "
+    "understood worn won written touched"
+).split()
+
+PART = r"(?:been(?:\s+\w+ing)?|" + "|".join(map(re.escape, IRREGULAR)) + r"|\w+(?:ed|en|t))"
+
+CLAUSE = re.compile(
+    r"\b((?:that|who|which|whom)\s+had(?:n't|n’t)?\s+(?:already\s+|mostly\s+)?"
+    + PART
+    + r")\b",
+    re.I,
+)
+
+SKIP_PREFIX = ("#", "|", ">")
+
+
+def hits_in(text):
+    return [m.group(1) for m in CLAUSE.finditer(text)]
+
+
+def scan(path):
+    found = []
+    incode = False
+    with open(path, encoding="utf-8", errors="replace") as fh:
+        for lineno, raw in enumerate(fh, 1):
+            s = raw.strip()
+            if s.startswith("```"):
+                incode = not incode
+                continue
+            if incode or not s or s.startswith(SKIP_PREFIX):
+                continue
+            for span in hits_in(raw):
+                found.append((lineno, span, s))
+    return found
+
+
+def main(paths):
+    total = 0
+    blocks = []
+    for path in paths:
+        rows = scan(path)
+        total += len(rows)
+        if not rows:
+            continue
+        lines = [f"\n== that-lint: {path} ==  ({len(rows)} to read)"]
+        for ln, span, ctx in rows:
+            snippet = ctx if len(ctx) < 110 else ctx[:107] + "…"
+            lines.append(f"    {ln:>4}: “{span}” — {snippet}")
+        blocks.append("\n".join(lines))
+    if total:
+        print("\n".join(blocks))
+        print(
+            "\n  (flags, not fixes — if one adjective already holds the"
+            " meaning, cut the clause. Keep it when it adds an actor,"
+            " a time, or a fact the adjective cannot hold.)"
+        )
+    else:
+        print("that-lint: no that+had clauses in " + ", ".join(paths))
+    return 0
+
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print("Usage: that-lint FILE [FILE ...]")
+        sys.exit(0)
+    sys.exit(main(sys.argv[1:]))
