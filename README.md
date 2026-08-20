@@ -68,3 +68,27 @@ On a file the author wrote, flag and stop. The author judges. Do not write past 
 ## License
 
 Apache-2.0. Written by Tom Adelstein.
+
+## A warning about `--fix`
+
+`had-lint --fix` and `that-lint --fix` write into the file. They are for a
+machine draft. Between 2026-08-18 and 2026-08-20 `had-lint --fix` carried
+a defect that reversed meaning: an intervening word between *had* and the
+participle was captured and then discarded, so
+
+    The job had not left his mouth.      became  The job left his mouth.
+    She had not seen him since Tuesday.  became  She saw him since Tuesday.
+    They had never spoken of it.         became  They spoke of it.
+
+It now handles negation, and any intervening word it does not recognise
+makes it leave the sentence alone rather than delete a word. Six tests
+cover it. If you ran `--fix` in that window, check your file for a
+sentence that says the opposite of what you wrote.
+
+And a second caution the same run turned up. Run over a chapter of a
+finished novel, `--fix` broke parallel constructions — where the author
+wrote *"He had not understood. He had only wanted walls…"* it changed the
+first clause and left the second, and the two no longer answer each
+other. These programs are built to read a machine draft. Point them at
+finished human prose and they will flatten what the writer did on
+purpose.

@@ -61,5 +61,33 @@ try:
 finally:
     os.remove(path)
 
+print("negation must survive --fix (2026-08-20)")
+
+
+def fixed(s):
+    import tempfile, os
+    with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False, encoding="utf-8") as fh:
+        fh.write(s + "\n")
+        path = fh.name
+    try:
+        hadlint.fix_file(path)
+        return open(path, encoding="utf-8").read().strip()
+    finally:
+        os.remove(path)
+
+
+ok("had not keeps the not", fixed("The job had not left his mouth."),
+   "The job did not leave his mouth.")
+ok("had not, second case", fixed("She had not seen him since Tuesday."),
+   "She did not see him since Tuesday.")
+ok("had never keeps the never", fixed("They had never spoken of it."),
+   "They never spoke of it.")
+ok("hadn't still contracts", fixed("He hadn't finished the report."),
+   "He didn't finish the report.")
+ok("plain past perfect still fixed", fixed("Nobody had asked her twice."),
+   "Nobody asked her twice.")
+ok("unknown middle word is refused, never dropped",
+   fixed("She had quietly closed the door."), "She had quietly closed the door.")
+
 print(f"{pass_n} passed, {fail_n} failed")
 sys.exit(1 if fail_n else 0)

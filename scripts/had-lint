@@ -1,26 +1,29 @@
 #!/usr/bin/env python3
-"""had-lint — FLAG (never fix) past-perfect constructions.
+"""had-lint — past-perfect constructions.
 
 Past perfect (had + participle) places an action further back than another
 past. If the sentence has no later past to sit before, the timeline floats
-and simple past is the tense. This program cannot see the anchor. It prints
-every hit. A person asks: where is the later past? No later past → the had
-comes off.
+and simple past is the tense. This program cannot see the anchor.
 
-NOT past perfect, so not flagged:
+  had-lint FILE [FILE ...]        report
+  had-lint --fix FILE [FILE ...]  write simple past into the file
+
+--fix is for a machine draft. Do not run it on the author's own prose
+unless he asked. The novel stays off this path.
+
+NOT past perfect, so not touched:
   had a book / had three days     possession
   had to leave / had better go    obligation
   had his hat                     possessive determiner
 
-Tom, 2026-07-17 and 2026-08-18. See feedback-past-perfect-had-overuse.md.
+Tom, 2026-07-17, 2026-08-18, 2026-08-18 rewrite. See
+feedback-past-perfect-had-overuse.md.
 
-Usage: had-lint FILE [FILE ...]
 Skips fenced code, headings, tables. Always exits 0.
 """
 import re
 import sys
 
-# Irregular participles. Regular -ed / -en / -t are handled by the suffix.
 IRREGULAR = (
     "been begun broken brought built bought caught chosen come cut done "
     "drawn driven drunk eaten fallen fed felt found forgotten forgiven "
@@ -32,10 +35,59 @@ IRREGULAR = (
     "won written"
 ).split()
 
+# participle → simple past / base (for didn't)
+TO_PAST = {
+    "been": "was", "begun": "began", "broken": "broke", "brought": "brought",
+    "built": "built", "bought": "bought", "caught": "caught", "chosen": "chose",
+    "come": "came", "cut": "cut", "done": "did", "drawn": "drew",
+    "driven": "drove", "drunk": "drank", "eaten": "ate", "fallen": "fell",
+    "fed": "fed", "felt": "felt", "found": "found", "forgotten": "forgot",
+    "forgiven": "forgave", "frozen": "froze", "given": "gave", "gone": "went",
+    "grown": "grew", "had": "had", "heard": "heard", "held": "held",
+    "hidden": "hid", "hit": "hit", "hurt": "hurt", "kept": "kept",
+    "known": "knew", "laid": "laid", "led": "led", "left": "left",
+    "lent": "lent", "let": "let", "lost": "lost", "made": "made",
+    "meant": "meant", "met": "met", "paid": "paid", "put": "put",
+    "read": "read", "rid": "rid", "ridden": "rode", "rung": "rang",
+    "risen": "rose", "run": "ran", "said": "said", "seen": "saw",
+    "sold": "sold", "sent": "sent", "set": "set", "shaken": "shook",
+    "shown": "showed", "shut": "shut", "sung": "sang", "sunk": "sank",
+    "sat": "sat", "slept": "slept", "slid": "slid", "spoken": "spoke",
+    "spent": "spent", "spun": "spun", "spread": "spread", "stood": "stood",
+    "stolen": "stole", "stuck": "stuck", "struck": "struck", "swept": "swept",
+    "swum": "swam", "taken": "took", "taught": "taught", "torn": "tore",
+    "told": "told", "thought": "thought", "thrown": "threw",
+    "understood": "understood", "worn": "wore", "won": "won",
+    "written": "wrote",
+}
+
+TO_BASE = {
+    "been": "be", "begun": "begin", "broken": "break", "brought": "bring",
+    "built": "build", "bought": "buy", "caught": "catch", "chosen": "choose",
+    "come": "come", "cut": "cut", "done": "do", "drawn": "draw",
+    "driven": "drive", "drunk": "drink", "eaten": "eat", "fallen": "fall",
+    "fed": "feed", "felt": "feel", "found": "find", "forgotten": "forget",
+    "forgiven": "forgive", "frozen": "freeze", "given": "give", "gone": "go",
+    "grown": "grow", "had": "have", "heard": "hear", "held": "hold",
+    "hidden": "hide", "hit": "hit", "hurt": "hurt", "kept": "keep",
+    "known": "know", "laid": "lay", "led": "lead", "left": "leave",
+    "lent": "lend", "let": "let", "lost": "lose", "made": "make",
+    "meant": "mean", "met": "meet", "paid": "pay", "put": "put",
+    "read": "read", "rid": "rid", "ridden": "ride", "rung": "ring",
+    "risen": "rise", "run": "run", "said": "say", "seen": "see",
+    "sold": "sell", "sent": "send", "set": "set", "shaken": "shake",
+    "shown": "show", "shut": "shut", "sung": "sing", "sunk": "sink",
+    "sat": "sit", "slept": "sleep", "slid": "slide", "spoken": "speak",
+    "spent": "spend", "spun": "spin", "spread": "spread", "stood": "stand",
+    "stolen": "steal", "stuck": "stick", "struck": "strike", "swept": "sweep",
+    "swum": "swim", "taken": "take", "taught": "teach", "torn": "tear",
+    "told": "tell", "thought": "think", "thrown": "throw",
+    "understood": "understand", "worn": "wear", "won": "win",
+    "written": "write",
+}
+
 PART = r"(?:been(?:\s+\w+ing)?|" + "|".join(IRREGULAR) + r"|\w+(?:ed|en|t))"
 
-# Skip possession and obligation after had. Exact words, not prefixes
-# (a bare ^any matches already).
 NOT_PERFECT = {
     "a", "an", "the", "to", "better",
     "his", "her", "its", "their", "our", "my", "your",
@@ -43,6 +95,19 @@ NOT_PERFECT = {
     "this", "that", "these", "those",
     "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
 }
+
+KEEP_MID = {"already", "mostly"}
+
+# Words that carry negation. "had not left" is not "left" — it is the
+# opposite of "left" — and an earlier version of this program dropped
+# them, silently reversing the meaning of every sentence it touched:
+#
+#     The job had not left his mouth.   ->  The job left his mouth.
+#     She had not seen him since Tuesday. ->  She saw him since Tuesday.
+#     They had never spoken of it.      ->  They spoke of it.
+#
+# Found 2026-08-20 by running --fix over a chapter of a finished novel.
+NEGATORS = {"not", "never", "no", "nor", "hardly", "scarcely", "barely"}
 
 
 def _skip(word):
@@ -52,12 +117,81 @@ def _skip(word):
         return True
     return word.lower() in NOT_PERFECT
 
+
+def _base(part):
+    low = part.lower()
+    if low in TO_BASE:
+        return TO_BASE[low]
+    if low.endswith("ied"):
+        return low[:-3] + "y"
+    if low.endswith("ed"):
+        stem = low[:-2]
+        if len(stem) > 2 and stem[-1] == stem[-2] and stem[-1] not in "aeiou":
+            return stem[:-1]
+        return stem
+    if low.endswith("en") or low.endswith("t"):
+        return low
+    return low
+
+
+def _past(part):
+    low = part.lower()
+    if low in TO_PAST:
+        return TO_PAST[low]
+    return part
+
+
+def _caplike(src, dst):
+    if src[:1].isupper():
+        return dst[:1].upper() + dst[1:]
+    return dst
+
+
 HAD = re.compile(
     r"\b(had(?:n't|n’t)?)\s+(?:(\w+)\s+)?(" + PART + r")\b",
     re.I,
 )
 
 SKIP_PREFIX = ("#", "|", ">")
+
+
+def rewrite_span(span):
+    """Turn one had + participle span into simple past."""
+    m = HAD.search(span)
+    if not m:
+        return span
+    had, mid, part = m.group(1), m.group(2), m.group(3)
+    if _skip(mid) or _skip(part):
+        return span
+    neg = "n't" in had.lower() or "n’t" in had.lower()
+    mid_low = mid.lower() if mid else ""
+    if mid_low in NEGATORS:
+        neg = True
+    low_part = part.lower()
+    if low_part.startswith("been "):
+        rest = part.split(None, 1)[1]
+        dst = ("wasn't " if neg else "was ") + rest
+    elif mid and mid.lower() == "been":
+        dst = ("wasn't " if neg else "was ") + part
+    elif mid_low in ("not", "no"):
+        dst = "did not " + _base(part)
+    elif mid_low in ("never", "nor", "hardly", "scarcely", "barely"):
+        dst = mid + " " + _past(part)
+    elif mid and mid_low in KEEP_MID:
+        if neg:
+            dst = mid + " didn't " + _base(part)
+        else:
+            dst = mid + " " + _past(part)
+    elif mid:
+        # An intervening word this program does not understand. Leave the
+        # sentence alone rather than delete a word. Nothing gets dropped
+        # silently; the reporting mode still names the line.
+        return span
+    elif neg:
+        dst = "didn't " + _base(part)
+    else:
+        dst = _past(part)
+    return _caplike(span, dst)
 
 
 def hits_in(text):
@@ -68,6 +202,15 @@ def hits_in(text):
             continue
         out.append(m.group(0))
     return out
+
+
+def rewrite_line(text):
+    def sub(m):
+        mid, part = m.group(2), m.group(3)
+        if _skip(mid) or _skip(part):
+            return m.group(0)
+        return rewrite_span(m.group(0))
+    return HAD.sub(sub, text)
 
 
 def scan(path):
@@ -86,10 +229,61 @@ def scan(path):
     return found
 
 
-def main(paths):
+def fix_file(path):
+    incode = False
+    out_lines = []
+    changed = []
+    with open(path, encoding="utf-8", errors="replace") as fh:
+        for lineno, raw in enumerate(fh, 1):
+            s = raw.strip()
+            if s.startswith("```"):
+                incode = not incode
+                out_lines.append(raw)
+                continue
+            if incode or not s or s.startswith(SKIP_PREFIX):
+                out_lines.append(raw)
+                continue
+            new = rewrite_line(raw)
+            if new != raw:
+                changed.append((lineno, raw.rstrip("\n"), new.rstrip("\n")))
+            out_lines.append(new)
+    if changed:
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.writelines(out_lines)
+    return changed
+
+
+def main(argv):
+    args = list(argv)
+    fix = False
+    if args and args[0] == "--fix":
+        fix = True
+        args = args[1:]
+    if not args:
+        print(__doc__.strip().split("Usage:")[0].strip())
+        print("Usage: had-lint [--fix] FILE [FILE ...]")
+        return 0
+
+    if fix:
+        total = 0
+        for path in args:
+            rows = fix_file(path)
+            total += len(rows)
+            if not rows:
+                print(f"had-lint --fix: no past perfect in {path}")
+                continue
+            print(f"\n== had-lint --fix: {path} ==  ({len(rows)} written)")
+            for ln, old, new in rows:
+                print(f"    {ln:>4}: {old}")
+                print(f"         → {new}")
+        if total:
+            print("\n  (wrote simple past. A later past that needed marking is gone.")
+            print("   Read the file. The novel and the author's own prose stay off --fix.)")
+        return 0
+
     total = 0
     blocks = []
-    for path in paths:
+    for path in args:
         rows = scan(path)
         total += len(rows)
         if not rows:
@@ -102,18 +296,13 @@ def main(paths):
     if total:
         print("\n".join(blocks))
         print(
-            "\n  (flags, not fixes — ask of each: where is the later past?"
-            " No later past → simple past. Two hads in one moment leave"
-            " the timeline with no anchor.)"
+            "\n  (report. had-lint --fix writes simple past into a machine draft."
+            " Do not --fix the author's own file unless he asked.)"
         )
     else:
-        print("had-lint: no past perfect in " + ", ".join(paths))
+        print("had-lint: no past perfect in " + ", ".join(args))
     return 0
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print(__doc__.strip().split("Usage:")[0])
-        print("Usage: had-lint FILE [FILE ...]")
-        sys.exit(0)
     sys.exit(main(sys.argv[1:]))
