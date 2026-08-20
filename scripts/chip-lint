@@ -8,8 +8,38 @@ Tom, 2026-08-18. See mixed-register skill and
 feedback-write-proper-english-not-chips.md.
 
 Usage: chip-lint FILE [FILE ...]
+       chip-lint --fix FILE     refused — this program will not invent a sentence
+
+HOW IT FINDS THE VERB, corrected 2026-08-20.
+
+Until today this program decided whether a sentence carried a finite verb
+by consulting a list of about sixty words, and every verb outside the list
+produced a false chip. Over chapter one of Tom's own novel it returned 448
+flags, and these four came back as fragments:
+
+    One man in that room spoke French better than English.
+    Below him, Euromediterranee cranes rebuilt the waterfront.
+    The old job rode in the seat with him.
+    He walks to the window and opens it.
+
+spoke, rebuilt, rode, walks, opens. None of them sat in the list. The
+program was blindest exactly where the house standard lives, because
+tom-voice asks for third person and simple past, and the simple past of an
+irregular verb was the largest category the list missed.
+
+It now asks spaCy and reads the tag. Where spaCy is absent the old list
+still runs, because this ships to people who have neither spaCy nor a
+reason to install it, and every report names which test produced it.
+
+    ~/pipeline-venv/bin/python -m pip install spacy click
+    ~/pipeline-venv/bin/python -m spacy download en_core_web_sm
+
+Usage adds:
+       chip-lint --how FILE     name the verb test, then read the file
+
 Skips fenced code, headings, tables. Always exits 0.
 """
+import os
 import re
 import sys
 
@@ -62,18 +92,99 @@ SKIP_PREFIX = ("#", "|", ">")
 SCENE = re.compile(r"^(January|February|March|April|May|June|July|August|"
                    r"September|October|November|December|\d{4})\b")
 
+# Markup is not prose. A <div class="scene-break"> is a typesetting
+# instruction and reading it as a fragment is the program's mistake.
+MARKUP = re.compile(r"^\s*<[^>]+>\s*$|^\s*<[a-zA-Z/][^>]*>")
+
+# People speak in fragments. Always. tom-voice exempts dialogue from the
+# passive filter for the same reason, and the reason holds here: a line of
+# speech is a character talking, not the author writing a sentence.
+OPEN_Q = "\u201c\u2018\"'"
+CLOSE_Q = "\u201d\u2019\"'"
+SPEECH = re.compile(rf"^[{OPEN_Q}].*[{CLOSE_Q}][.,!?;:]?$", re.S)
+
+# Wholly italic stretches are quoted matter — a line off a screen, a
+# phrase in a document, signage. The author is reporting it, not writing it.
+QUOTED_ITALIC = re.compile(r"^\*[^*]+\*[.,!?]?$|^_[^_]+_[.,!?]?$")
+
 
 def tokens(s):
     return re.findall(r"[A-Za-z']+", s)
 
 
-def has_finite_verb(words):
+_NLP = None
+_TRIED = False
+METHOD = "list"
+VENV_SITE = os.path.expanduser("~/pipeline-venv/lib/python3.12/site-packages")
+
+
+def _parser():
+    """Load spaCy once. Return None where it is not installed.
+
+    The pipeline keeps spaCy in ~/pipeline-venv, not in the system Python,
+    so this looks there before giving up. The venv path goes to the FRONT
+    of sys.path: the system typing_extensions is older than the one spaCy
+    needs, and appending lets the system copy win.
+    """
+    global _NLP, _TRIED, METHOD
+    if _TRIED:
+        return _NLP
+    _TRIED = True
+    for extra in (None, VENV_SITE):
+        if extra:
+            if not os.path.isdir(extra) or extra in sys.path:
+                continue
+            sys.path.insert(0, extra)
+        try:
+            import spacy
+            _NLP = spacy.load("en_core_web_sm", disable=["ner", "lemmatizer"])
+            METHOD = "spaCy en_core_web_sm"
+            return _NLP
+        except Exception:
+            _NLP = None
+    return _NLP
+
+
+def has_finite_verb_listed(words):
+    """The pre-2026-08-20 test. The fallback now, never the answer."""
     for w in words:
         low = w.lower()
         if low in IRREGULAR or low in BE_OR_MODAL:
             return True
         if len(low) > 3 and low.endswith("ed") and not low.endswith(("ssed", "ness")):
             return True
+    return False
+
+
+def has_finite_verb(words, sent=None):
+    nlp = _parser()
+    if nlp is None or sent is None:
+        return has_finite_verb_listed(words)
+    doc = nlp(sent)
+    real = [tok for tok in doc if not tok.is_punct and not tok.is_space]
+    for tok in doc:
+        if tok.pos_ not in ("VERB", "AUX"):
+            continue
+        # An imperative is a whole sentence. spaCy tags "Run the query" VB
+        # with VerbForm=Inf, the same as the "to run" of a complement, so
+        # the ROOT position is what separates them.
+        imperative = tok.tag_ == "VB" and tok.dep_ == "ROOT"
+        if not imperative:
+            form = tok.morph.get("VerbForm")
+            if form and form[0] in ("Part", "Ger", "Inf"):
+                continue
+            if tok.tag_ in ("VBG", "VBN"):
+                continue
+        # "Delivery dates." parses as noun plus present-tense verb, a fair
+        # reading of two words with no context and the wrong one here.
+        # Distrust it in that exact shape only: two words, a present -s
+        # form, a common noun in the subject seat. "Snow fell" keeps its
+        # past tense and "He walks" keeps its pronoun; both stay sentences.
+        if len(real) == 2 and tok.tag_ == "VBZ" and tok.text.lower().endswith("s"):
+            subj = [c for c in tok.children if c.dep_ in ("nsubj", "nsubjpass")]
+            if subj and subj[0].pos_ == "NOUN":
+                continue
+        return True
     return False
 
 
@@ -86,11 +197,13 @@ def classify(sent):
     raw = sent.strip()
     if not raw or raw.startswith(SKIP_PREFIX):
         return None
+    if MARKUP.match(raw) or SPEECH.match(raw) or QUOTED_ITALIC.match(raw):
+        return None
     words = tokens(raw)
     if not words:
         return None
     # Quoted speech of one word ("Audit,") is a chip unless a verb is in it.
-    if has_finite_verb(words):
+    if has_finite_verb(words, raw):
         return None
     if len(words) <= 6:
         return "LABEL"
@@ -123,7 +236,7 @@ def main(paths):
         total += len(rows)
         if not rows:
             continue
-        lines = [f"\n== chip-lint: {path} ==  ({len(rows)} to read)"]
+        lines = [f"\n== chip-lint: {path} ==  ({len(rows)} to read, verb test: {METHOD})"]
         for ln, kind, sent in rows:
             snippet = sent if len(sent) < 110 else sent[:107] + "…"
             lines.append(f"    {ln:>4}: [{kind}] {snippet}")
@@ -140,7 +253,22 @@ def main(paths):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
+    args = sys.argv[1:]
+    if args and args[0] == "--fix":
+        print(
+            "chip-lint --fix: refused. A chip is not a sentence."
+            " This program will not invent the verb. A person writes it."
+        )
+        sys.exit(0)
+    if args and args[0] == "--how":
+        args = args[1:]
+        _parser()
+        print(f"chip-lint verb test: {METHOD}")
+        if METHOD == "list":
+            print("  spaCy not found, so the sixty-word list is running."
+                  "\n  It misses spoke, rebuilt, rode, walks, opens and most"
+                  " irregular simple past. Counts from this run read high.")
+    if len(args) < 1:
         print("Usage: chip-lint FILE [FILE ...]")
         sys.exit(0)
-    sys.exit(main(sys.argv[1:]))
+    sys.exit(main(args))
