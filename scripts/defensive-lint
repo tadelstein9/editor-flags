@@ -1,0 +1,228 @@
+#!/usr/bin/env python3
+"""defensive-lint — prose written to survive an audit instead of to be read.
+
+A sentence has one job: say the thing. When it also has to protect the
+writer, the second job wins on word count and the reader gets the armor
+instead of the point. A model writes this way because it is trained not
+to be caught out rather than to be right, and the two produce different
+prose. A voice is a willingness to be pinned; prose that refuses to be
+pinned has no voice, and a reader hears that long before naming it.
+
+  defensive-lint FILE [FILE ...]        report
+  defensive-lint --rate FILE [...]      report and the rate per 1,000 words
+
+Reports. Never rewrites. Turning a hedge into an instruction requires
+knowing what is actually true, which is the author's job, not a filter's.
+
+It skips quoted speech, markup and wholly italic lines, and it counts a
+negative definition only where a replacement follows it. "This is not X,
+it is Y" hides a claim. "A partner is not a friend" is a figure, and
+telling them apart is what the first version got wrong.
+
+What it hunts, in six kinds:
+
+  LABEL        Limit: / Caveat: / Unverified / a floor, not a total
+  CONCESSION   That said / it is worth noting / to be fair / granted
+  NEGATIVE     is not a X, it is a Y / rather than a / do not read this as
+  RESTATEMENT  in short / to be clear / put simply / in one sentence
+  HEDGE        arguably / broadly speaking / tends to / may well
+  DISCLAIM     results may vary / at your own risk / your mileage
+
+The cure is Tom's own rule one level up. tom-warnings-are-instructions
+turns "memory height is a common point of failure" into "use low profile
+memory" — same fact, and only one of them leaves the reader holding a
+shopping list. A warning protects the writer. An instruction takes
+responsibility for getting the reader across. Ask of every flag: who am
+I protecting? If the answer is me, cut it. If the reader, make it an
+instruction.
+
+Some flags are earned. A limit that carries real information — a global
+figure used for an American claim — belongs on the page. A limit under
+every number is a posture. The rate matters more than any single hit.
+
+MEASURED THREE TIMES, and the first two were wrong. 2026-08-20 morning
+said 0.35 — it was counting quoted dialogue and counting antithesis as
+hedging. The second pass fixed both and said 0.25 — it was matching
+"arguably" and missing "Arguably" at the head of a sentence, which is
+where a hedge usually sits. The third pass reads case-insensitively:
+
+  Tom, 379,005 words                 0.31/1k
+    Substack                         0.34
+    Linux Journal, 105 articles      0.32
+    watch site, 146 posts            0.31
+    Consulting Times                 0.24
+    tadelstein.com                   0.19
+  The Heart That Stopped the Plague  0.22
+  a muscle draft from a fact block   0.40
+  this seat, unfixed analysis        2.98
+
+Five venues, twenty years, 0.19 to 0.34. The median piece scores 0.00 —
+he does not hedge at all, most days. His fiction runs below his
+journalism.
+
+  at or under 0.35   inside the author's own range
+  0.35 to 0.70       above it. Read every flag
+  over 0.70          the machine covering itself
+
+The finding that sharpens the diagnosis: a muscle draft written from a
+block of verified facts scores 0.40 — as clean as the author. This seat
+writing analysis for a person scored 2.98 on the same day. The fault is
+not machine drafting. It is machine EDITORIALIZING. Constrained to
+report a fact, the model says it plainly. Asked to explain, judge or
+advise, it starts protecting itself, and the armor arrives with the
+opinion.
+
+Skips fenced code, headings, tables, block quotations and bare URLs. A
+source's own hedge, quoted, is not the author's hedge. Always exits 0.
+
+Tom, 2026-08-20. See feedback-defensive-posture-is-a-tell.md.
+"""
+import re
+import sys
+
+PATTERNS = [
+    ("LABEL", r"\b(?:Limits?|Caveats?)\s*[:.]"),
+    ("LABEL", r"\b(?:Unverified|Not checked|Not verified)\b"),
+    ("LABEL", r"\b(?:a|the) floor,? (?:rather than|not)\b"),
+    ("LABEL", r"\bnot a total\b"),
+    ("LABEL", r"\breported,? (?:rather than|not) (?:primary|verified)\b"),
+    ("CONCESSION", r"\bThat said\b"),
+    ("CONCESSION", r"\b[Ii]t(?:'s| is) worth noting\b"),
+    ("CONCESSION", r"\b[Ii]t should be noted\b"),
+    ("CONCESSION", r"\bWhile (?:it(?:'s| is) true|that(?:'s| is) true)\b"),
+    ("CONCESSION", r"\b(?:To be fair|Admittedly|Granted),"),
+    ("CONCESSION", r"\bOf course,"),
+    ("CONCESSION", r"\bTo be sure,"),
+    ("NEGATIVE", r"\b(?:is|are|was|were) not (?:a|an|the)\b"),
+    ("NEGATIVE", r"\brather than (?:a|an|the)\b"),
+    ("NEGATIVE", r"\bdoes not mean\b"),
+    ("NEGATIVE", r"\b[Dd]o not read (?:this|it) as\b"),
+    ("NEGATIVE", r"\bshould not be (?:read|taken) as\b"),
+    ("NEGATIVE", r"\bnot so much (?:a|an)\b"),
+    ("RESTATEMENT", r"\b[Ii]n short,"),
+    ("RESTATEMENT", r"\b[Tt]o be clear,"),
+    ("RESTATEMENT", r"\b[Pp]ut simply,"),
+    ("RESTATEMENT", r"\b[Ss]imply put,"),
+    ("RESTATEMENT", r"\b[Ii]n one sentence\b"),
+    ("RESTATEMENT", r"\b[Tt]he short version\b"),
+    ("RESTATEMENT", r"\b[Ii]n other words,"),
+    ("HEDGE", r"\barguably\b"),
+    ("HEDGE", r"\b(?:it could be|one could) argue[d]?\b"),
+    ("HEDGE", r"\bsome would say\b"),
+    ("HEDGE", r"\bmay well\b"),
+    ("HEDGE", r"\btends? to be\b"),
+    ("HEDGE", r"\b(?:broadly|roughly|generally) speaking\b"),
+    ("HEDGE", r"\bin general terms\b"),
+    ("HEDGE", r"\bfor the most part\b"),
+    ("DISCLAIM", r"\b(?:results|your mileage) may vary\b"),
+    ("DISCLAIM", r"\bat your own risk\b"),
+    ("DISCLAIM", r"\bno guarantee\b"),
+]
+# Case-insensitive throughout. An earlier version matched "arguably" and
+# missed "Arguably" at the head of a sentence, which is where it usually
+# sits. "Granted," keeps its capital, because a granted licence is not a
+# concession.
+COMPILED = [(k, re.compile(p, 0 if "Granted" in p else re.I)) for k, p in PATTERNS]
+
+SKIP = re.compile(r"^\s*(?:#{1,6}\s|\||>|\s*[-*]{3,}\s*$|https?://)")
+
+# Markup is a typesetting instruction, not a sentence.
+MARKUP = re.compile(r"^\s*<[a-zA-Z/][^>]*>")
+
+# People speak in fragments and antitheses. tom-voice exempts dialogue from
+# the passive filter and the reason holds here: a line of speech is a
+# character talking, not the author covering himself.
+OPEN_Q = "\u201c\u2018"
+SPEECH = re.compile(rf"[{OPEN_Q}][^\u201d\u2019]{{0,400}}$")
+
+# A negative definition hedges only when it hands over a replacement.
+#   hedge      "is not a desktop story. It is a hardware story."
+#   hedge      "a floor rather than a total"
+#   figure     "A partner is not a friend."
+#   figure     "Tired was not the same as finished."
+# Measured 2026-08-20 against a chapter of Tom's novel and this seat's own
+# analysis. Length does not separate them — his run 6 to 10 words and mine
+# run 9 to 21 — but the replacement does, every time.
+REPLACEMENT = re.compile(
+    r"(?:[,—–-]\s*(?:it|they|that)\s+(?:is|are|was|were)\b"
+    r"|\.\s+(?:It|They|That|What)\s+(?:is|are|was|were)\b)")
+
+
+def scan(path):
+    try:
+        text = open(path, encoding="utf-8").read()
+    except OSError as exc:
+        print(f"defensive-lint: {exc}", file=sys.stderr)
+        return [], 0
+    rows = []
+    fenced = False
+    words = 0
+    for n, line in enumerate(text.split("\n"), 1):
+        if line.lstrip().startswith("```"):
+            fenced = not fenced
+            continue
+        if fenced or SKIP.match(line) or MARKUP.match(line):
+            continue
+        words += len(line.split())
+        for kind, rx in COMPILED:
+            for m in rx.finditer(line):
+                span = m.group(0)
+                # A line of speech is a character talking.
+                if SPEECH.search(line[:m.start()]):
+                    continue
+                # "is not a" earns a flag only where a replacement follows.
+                # Without one it is antithesis, which is a figure.
+                if kind == "NEGATIVE" and re.match(r"(?:is|are|was|were) not", span):
+                    tail = line[m.end():m.end() + 160]
+                    if not REPLACEMENT.search(tail):
+                        continue
+                rows.append((n, kind, span, " ".join(line.split())))
+    return rows, words
+
+
+def main(args):
+    show_rate = "--rate" in args
+    args = [a for a in args if a != "--rate"]
+    if not args:
+        print(__doc__.strip())
+        return 0
+
+    total = 0
+    blocks = []
+    for path in args:
+        rows, words = scan(path)
+        total += len(rows)
+        if not rows:
+            continue
+        head = f"\n== defensive-lint: {path} ==  ({len(rows)} to read)"
+        lines = [head]
+        for ln, kind, span, ctx in rows:
+            snippet = ctx if len(ctx) < 100 else ctx[:97] + "…"
+            lines.append(f"    {ln:>4}: [{kind}] “{span}” — {snippet}")
+        if show_rate and words:
+            rate = len(rows) * 1000.0 / words
+            lines.append(f"\n    {words:,} words · {rate:.2f} flags per 1,000")
+            if rate <= 0.35:
+                verdict = "inside the author's own range (his 379,005 words run 0.31)"
+            elif rate <= 0.70:
+                verdict = "above his range — read every flag"
+            else:
+                verdict = "the machine covering itself. His prose runs 0.19 to 0.34"
+            lines.append(f"    {verdict}.")
+        blocks.append("\n".join(lines))
+
+    if total:
+        print("\n".join(blocks))
+        print(
+            "\n  (report, never a rewrite. Ask of each flag: who am I protecting?"
+            "\n   If the answer is me, cut it. If the reader, make it an instruction —"
+            "\n   \"use low profile memory,\" not \"memory height is a common failure point.\""
+            "\n   An earned caveat stays. A caveat under every number is a posture.)"
+        )
+    else:
+        print("defensive-lint: nothing defensive in " + ", ".join(args))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
