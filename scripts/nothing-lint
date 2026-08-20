@@ -1,0 +1,135 @@
+#!/usr/bin/env python3
+"""nothing-lint — the absolute negative used as emphasis.
+
+Tom, 2026-08-20: "You LLMs think that the word nothing has meaning and
+sounds great. Humans hate it."
+
+He is right, and the reason is worth stating. A positive claim costs you
+a fact. "Your manuscript stays on the disk in your room" can be checked
+— somebody can walk over and look. "Nothing leaves it" asserts a
+proposition about the entire universe of things that did not happen. It
+sounds heavier and commits to less. Absolute negation buys the tone of a
+guarantee at the price of a guarantee.
+
+It is the same disposition defensive-lint hunts, wearing a different
+coat. Defensive posture protects the writer by qualifying. This protects
+the writer by making a claim so total that no particular fact has to hold
+it up.
+
+  nothing-lint FILE [FILE ...]      report
+  nothing-lint --rate FILE [...]    report and the rate per 1,000 words
+
+Reports. Never rewrites. The fix is not a deletion, it is a replacement:
+say what DOES happen. That takes knowing what happens, which is the
+author's job.
+
+MEASURED 2026-08-20, occurrences per 1,000 words:
+
+  Tom, The Heart That Stopped Plague   0.16
+  Douglass, Narrative                  0.17
+  Dickens, Great Expectations          0.20
+  Twain, Huckleberry Finn              0.23
+  Tom, 379,005 published words         0.25
+  Austen, Pride and Prejudice          0.32
+  ---------------------------------------- writers, 0.16 to 0.32
+  this seat, a sources file            0.57
+  this seat, a page of image prompts   1.98
+  this seat, a product page            2.65
+  this seat, six video captions       64.52
+
+Six writers, two centuries, four genres, and they sit inside a fifth of
+a point of each other. Sixty-two words of machine caption held four.
+
+WHAT IT DOES NOT FLAG. Ordinary negation is not the fault. "He did not
+answer" is a fact about a man. "Nothing answered" is a claim about the
+world. The patterns below hunt the second kind: the absolute standing
+where a particular belongs.
+
+Skips fenced code, headings, tables, block quotations and URLs. Always
+exits 0.
+
+Tom, 2026-08-20. See feedback-the-absolute-negative.md.
+"""
+import os
+import re
+import sys
+
+FLOOR = 0.35          # just above the writers' top mark
+LOUD = 0.70
+
+PATTERNS = [
+    ("ABSOLUTE", r"(?:^|(?<=[.!?;:—]\s))\s*Nothing\b"),
+    ("ABSOLUTE", r"\bnothing\s+(?:leaves|changes|moves|happens|remains|survives|escapes|is\s+lost|of\s+it)\b"),
+    ("ABSOLUTE", r"\bNone of (?:them|it|this|these|those|which)\b"),
+    ("ABSOLUTE", r"\bNot one of\b"),
+    ("ABSOLUTE", r"\bnot a (?:single|word|thing|one)\b"),
+    ("SWEEP", r"\bnever\s+(?:once|leaves|left|found|goes|does|did|has)\b"),
+    ("SWEEP", r"(?i)\bno\s+\w+,\s*no\s+\w+,\s*no\s+\w+"),
+    ("SWEEP", r"\bat\s+all\b\s*[.!?]"),
+]
+COMPILED = [(k, re.compile(p)) for k, p in PATTERNS]
+SKIP = re.compile(r"^\s*(?:#{1,6}\s|\||>|!\[|https?://|\s*[-*=]{3,}\s*$)")
+
+
+def scan(path):
+    try:
+        text = open(path, encoding="utf-8", errors="replace").read()
+    except OSError as exc:
+        print(f"nothing-lint: {exc}", file=sys.stderr)
+        return [], 0
+    rows, fenced, words = [], False, 0
+    for n, line in enumerate(text.split("\n"), 1):
+        if line.lstrip().startswith("```"):
+            fenced = not fenced
+            continue
+        if fenced or SKIP.match(line):
+            continue
+        words += len(line.split())
+        for kind, rx in COMPILED:
+            for m in rx.finditer(line):
+                rows.append((n, kind, m.group(0).strip(), " ".join(line.split())))
+    return rows, words
+
+
+def main(args):
+    show = "--rate" in args
+    args = [a for a in args if a != "--rate"]
+    if not args:
+        print(__doc__.strip())
+        return 0
+    total = 0
+    blocks = []
+    for path in args:
+        rows, words = scan(path)
+        total += len(rows)
+        if not rows:
+            continue
+        lines = [f"\n== nothing-lint: {path} ==  ({len(rows)} to read)"]
+        for ln, kind, span, ctx in rows:
+            snip = ctx if len(ctx) < 96 else ctx[:93] + "…"
+            lines.append(f"    {ln:>4}: [{kind}] “{span}” — {snip}")
+        if show and words:
+            rate = len(rows) * 1000.0 / words
+            lines.append(f"\n    {words:,} words · {rate:.2f} per 1,000")
+            if rate <= FLOOR:
+                lines.append("    inside the writers' band (0.16 to 0.32 across six of them).")
+            elif rate <= LOUD:
+                lines.append("    above the writers. Read each one.")
+            else:
+                lines.append("    far above any of them. This is the machine sounding certain.")
+        blocks.append("\n".join(lines))
+    if total:
+        print("\n".join(blocks))
+        print(
+            "\n  (report, never a rewrite. The fix is a replacement, not a cut:"
+            "\n   say what DOES happen. \"Your manuscript stays on your own disk\","
+            "\n   not \"nothing leaves it.\" One can be checked. The other only"
+            "\n   sounds like it can.)"
+        )
+    else:
+        print("nothing-lint: no absolute negatives in " + ", ".join(args))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

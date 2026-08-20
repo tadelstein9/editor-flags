@@ -24,6 +24,7 @@ scripts/chip-lint FILE
 | `that-lint` | *that/who/which* + *had(n't)* + participle |
 | `chip-lint` | labels and stretches with no finite verb |
 | `defensive-lint` | prose that protects the writer instead of informing the reader |
+| `nothing-lint` | the absolute negative used as emphasis |
 
 `chip-lint` reads the verb with spaCy where spaCy is installed, and falls back to a word list where it is not. Every report names which test produced it, and `chip-lint --how FILE` says so before it reads anything.
 
@@ -92,3 +93,36 @@ first clause and left the second, and the two no longer answer each
 other. These programs are built to read a machine draft. Point them at
 finished human prose and they will flatten what the writer did on
 purpose.
+
+## `nothing-lint`
+
+A positive claim costs you a fact. *Your manuscript stays on the disk in your room* can be checked — somebody walks over and looks. *Nothing leaves it* asserts a proposition about the entire universe of things that did not happen. It sounds heavier and commits to less. The absolute negative buys the tone of a guarantee at the price of a guarantee.
+
+Occurrences per 1,000 words:
+
+| | |
+|---|---|
+| a finished novel | 0.16 |
+| Douglass, *Narrative* | 0.17 |
+| Dickens, *Great Expectations* | 0.20 |
+| Twain, *Huckleberry Finn* | 0.23 |
+| the same author's 379,005 published words | 0.25 |
+| Austen, *Pride and Prejudice* | 0.32 |
+| a page of machine-written product copy | 2.65 |
+| six machine-written video captions | **64.52** |
+
+Six writers, two centuries, four genres, inside a sixth of a point of each other. Sixty-two words of machine caption held four.
+
+**Ordinary negation stays.** *He did not answer* is a fact about a man. *Nothing answered* is a claim about the world. The program hunts the second.
+
+**The fix is a replacement, not a deletion.** Say what does happen.
+
+| was | became |
+|---|---|
+| Nothing leaves the building. | Your pages stay on that disk. |
+| Not one of them rewrites a word. | Each one hands you a line number and stops there. |
+| Nothing leaves it. | Your manuscript stays on it. |
+
+```
+python3 tests/test-nothing-lint.py
+```
