@@ -186,23 +186,13 @@ fault. On 26 September the first correction, *serves as*, led to five more
 of the same kind in one section, and *SSH decides* led to four more across
 three sections. The author should not have to find each one.
 
-## Measured
+## How it was checked
 
-`agency-lint` on the author's published prose, 26 September 2026, flags
-per 1,000 words:
-
-| source | words | per 1,000 |
-|---|---|---|
-| watch site | 120,848 | 0.02 |
-| Linux Journal | 143,163 | 0.06 |
-| Consulting Times | 36,963 | 0.08 |
-| tadelstein.com | 10,578 | 0.09 |
-| *Linux System Administration*, O'Reilly, 2007 | 82,948 | 0.27 |
-| machine drafts carrying the fault | 6,962 | 0.64 to 0.87 |
-
-The 2007 book's flags read like the technical idiom of its day: *the DNS
-server doesn't know*, *your browser wants*, *the script assumes*. The
-author set the rule in 2026. Measure your own corpus before trusting these
-numbers for yours.
+Before it shipped, the program ran against a large body of published human
+prose as a control, not a score. The first version flagged ordinary English
+as a fault: people who "served as" officers, a laptop that "arrived" in the
+mail. Those false alarms came out before release. Run it against your own
+finished writing first; if it flags sentences you would defend, tell it so
+in the lists at the top of the program.
 
 Written by **Tom Adelstein**. Apache-2.0.
