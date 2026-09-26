@@ -1,0 +1,324 @@
+#!/usr/bin/env python3
+"""agency-lint — a thing doing what only a person can do.
+
+Tom, 26 September 2026, reading a chapter this seat drafted about a
+hardened Linux laptop. Three sentences, three corrections:
+
+  "The hardened endpoint serves as the machine a person sits at."
+      "Serves as" hides the actor. Name the human, name the system's role.
+
+  "SSH decides who gets in once a computer arrives there."
+      SSH is a protocol, not an agent. It cannot decide. Computers do not
+      arrive; packets reach a listening port. "There" has no antecedent.
+      "Gets in" is conversational, not technical.
+
+  "paris-07 knocks on port 22."
+      The same travel picture, found in a later sweep.
+
+Each fault puts the wrong thing in the subject seat, or gives a network a
+body it does not have. The reader has to translate the sentence back into
+what happened before they can use it. A technical page that makes the
+reader translate has already failed at its one job.
+
+  agency-lint FILE [FILE ...]      report
+  agency-lint --rate FILE [...]    report and the rate per 1,000 words
+  agency-lint --how FILE           say which test runs, then report
+
+FAMILIES IT FLAGS
+
+  DISGUISED-BE   a thing that "serves as", "acts as", "functions as" or
+                 "plays the role of" something. A to-be verb in a costume:
+                 the sentence defines where it should act. A person who
+                 "served as the first Secretary" held an office, and that
+                 does not flag.
+
+  THING-MINDS    a protocol, a program, a file, a document or a section
+                 in the subject seat of a verb only a mind performs:
+                 decides, knows, wants, promises, teaches, believes. The
+                 administrator decides. sshd enforces. The manual states.
+
+  TRAVEL         a thing that knocks, walks, travels, gets in or lets
+                 you in; or arrives, lands or visits in a sentence about a
+                 network. "The laptop arrived" is a parcel and stays. A connection reaches a
+                 port. sshd accepts a key. UFW admits the connection.
+
+  LOOSE-THERE    "there" closing a sentence, pointing at a place the
+                 sentence never named ("once a computer arrives there").
+                 Anchor it to a host, a port, a file or a service.
+                 ("There is" and "there are" open a sentence and do not
+                 flag here.)
+
+FAMILIES IT CANNOT FLAG — the skill carries these to a reader:
+one verb standing in for a process, a register jump inside one
+sentence, a fact that turns into an instruction without a transition,
+and a state that seems to contradict itself.
+
+Reads the grammar with spaCy where spaCy is installed; without it,
+THING-MINDS and LOOSE-THERE cannot run, and the report says so. Skips
+fenced code, inline code, headings, tables, block quotations and text
+inside double quotation marks: a quotation belongs to its author.
+Reports. Never rewrites. Always exits 0.
+"""
+import os
+import re
+import sys
+
+VENV_SITE = os.path.expanduser("~/pipeline-venv/lib/python3.12/site-packages")
+_NLP = None
+_TRIED = False
+METHOD = "patterns only (spaCy not found)"
+
+DISGUISED_BE = re.compile(
+    r"\b(?:serves?|served|serving|acts?|acted|acting|functions?|functioned|functioning)\s+as\b"
+    r"|\bplays?\s+the\s+(?:role|part)\s+of\b",
+    re.I)
+
+# Always a picture when a thing does them.
+TRAVEL_VERBS = {"knock", "travel", "walk", "wander", "sneak", "journey"}
+# Ordinary English for a parcel or a market ("the laptop arrived"). A trip
+# only when the sentence talks about a network.
+TRAVEL_IF_NETWORK = {"arrive", "land", "visit"}
+NETWORK = re.compile(
+    r"\b(?:ssh|sshd|ufw|firewall|port|ports|network|packet|packets|connection|"
+    r"connections|login|logins|server|host|hosts|tcp|udp|ip|address|interface|"
+    r"socket|protocol)\b|\b\d{1,3}(?:\.\d{1,3}){3}\b", re.I)
+
+MIND_VERBS = {
+    "decide", "know", "want", "think", "believe", "understand", "remember",
+    "forget", "choose", "promise", "teach", "hope", "expect", "wish", "prefer",
+    "trust", "care", "refuse", "agree", "doubt", "fear", "intend", "worry",
+    "insist", "assume", "judge", "notice", "realize",
+}
+
+# A subject flags only when it names one of these. Anything the program
+# cannot place stays unflagged: a false alarm on a writer's own prose costs
+# more than a miss, because it teaches the writer to ignore the report.
+THINGS = {
+    # computers and their parts
+    "computer", "machine", "host", "server", "laptop", "desktop",
+    "node", "endpoint", "workstation", "router", "switch", "card",
+    "port", "interface", "socket", "disk", "drive", "kernel",
+    # software
+    "program", "software", "application", "app", "service", "daemon",
+    "process", "tool", "script", "command", "system", "firewall", "protocol",
+    "browser", "database", "model", "agent", "shell", "filter", "module",
+    "package", "container", "cluster", "timer", "unit",
+    # traffic
+    "connection", "packet", "request", "session", "traffic", "network",
+    "message", "key", "certificate", "token", "login",
+    # settings and text
+    "rule", "setting", "option", "policy", "configuration", "config", "file",
+    "line", "list", "log", "entry", "value", "flag",
+    "manual", "document", "section", "chapter", "page", "book", "paragraph",
+    "sentence", "guide", "readme", "note", "notes", "article", "report",
+}
+TECH_NAMES = {
+    "ssh", "sshd", "ufw", "linux", "mint", "ubuntu", "debian", "systemd",
+    "samba", "ansible", "git", "apparmor", "netfilter", "iptables", "nftables",
+    "kerberos", "sssd", "pam", "k3s", "kubernetes", "proxmox", "ollama",
+    "apache", "nginx", "dns", "dhcp", "tcp", "udp", "http", "https", "tls",
+    "cups", "avahi", "prometheus", "grafana", "grep", "cron",
+}
+PEOPLE = {
+    "i", "you", "we", "he", "she", "they", "who", "one", "someone", "somebody",
+    "anyone", "everyone", "person", "people", "user", "reader", "administrator",
+    "admin", "engineer", "author", "writer", "founder", "developer",
+    "maintainer", "team", "staff", "manager", "hire", "owner", "operator",
+    "editor", "client", "customer", "man", "woman", "men", "women", "boy",
+    "girl", "child", "children", "company", "firm", "house", "publisher",
+    "government", "agency", "office", "family", "friend", "student", "teacher",
+    "doctor", "nurse", "boss", "employer", "recruiter", "candidate",
+    "applicant", "partner", "media", "press", "public", "kid", "kids",
+}
+HOSTNAME = re.compile(r"^[a-z][a-z0-9]*-\d+$", re.I)
+PERSON_SUFFIX = ("er", "ers", "or", "ors", "ist", "ists", "ian", "ians",
+                 "ant", "ants", "ent", "ents")
+
+SKIP_LINE = re.compile(r"^\s*(?:#{1,6}\s|\||>|!\[|https?://|\s*[-*=]{3,}\s*$)")
+INLINE_CODE = re.compile(r"`[^`]*`")
+QUOTED = re.compile(r"\"[^\"]*\"|“[^”]*”")
+
+
+def _parser():
+    """Load spaCy once, with the entity tagger on so a named person is known."""
+    global _NLP, _TRIED, METHOD
+    if _TRIED:
+        return _NLP
+    _TRIED = True
+    for extra in (None, VENV_SITE):
+        if extra:
+            if not os.path.isdir(extra) or extra in sys.path:
+                continue
+            sys.path.insert(0, extra)
+        try:
+            import spacy
+            _NLP = spacy.load("en_core_web_sm")
+            METHOD = "spaCy en_core_web_sm"
+            return _NLP
+        except Exception:
+            _NLP = None
+    return _NLP
+
+
+def blank(m):
+    """Keep offsets and line length; drop the words."""
+    return " " * len(m.group(0))
+
+
+def prose_lines(text):
+    """Yield (line number, cleaned line) for lines a writer wrote as prose."""
+    fenced = False
+    for n, line in enumerate(text.split("\n"), 1):
+        if line.lstrip().startswith("```"):
+            fenced = not fenced
+            continue
+        if fenced or not line.strip() or SKIP_LINE.match(line):
+            continue
+        clean = INLINE_CODE.sub(blank, line)
+        clean = QUOTED.sub(blank, clean)
+        yield n, clean, line
+
+
+def kind_of(tok):
+    """Return "person", "thing" or "unknown" for a subject token."""
+    low, lemma = tok.lower_, tok.lemma_.lower()
+    if tok.pos_ == "PRON":
+        return "person"
+    if low in TECH_NAMES or HOSTNAME.match(tok.text):
+        return "thing"
+    if lemma in THINGS or low in THINGS:
+        return "thing"
+    if low in PEOPLE or lemma in PEOPLE or tok.ent_type_ in ("PERSON", "NORP", "ORG", "GPE"):
+        return "person"
+    if low.endswith(PERSON_SUFFIX):
+        return "person"
+    return "unknown"
+
+
+def loose_there(tok):
+    """ "there" closing its sentence, as in "arrives there." Mid-sentence,
+    "there" usually points back at a place just named ("between there and
+    Kipton"), and "out there" names no place at all, so neither flags."""
+    if tok.lower_ != "there" or tok.dep_ != "advmod":
+        return False
+    if not NETWORK.search(tok.sent.text):
+        return False
+    words = [t for t in tok.sent if not t.is_punct]
+    if not words or words[-1].i != tok.i:
+        return False
+    return tok.i == 0 or tok.doc[tok.i - 1].lower_ not in ("out", "over", "in", "up", "down", "here")
+
+
+def subject_of(verb):
+    for c in verb.children:
+        if c.dep_ in ("nsubj", "nsubjpass"):
+            return c
+    if verb.dep_ == "conj":
+        return subject_of(verb.head)
+    return None
+
+
+def span_of(subj, verb, extra=""):
+    words = [t.text for t in subj.subtree if t.i <= subj.i] or [subj.text]
+    return " ".join(words[-4:]) + " " + verb.text + extra
+
+
+def scan(path):
+    try:
+        text = open(path, encoding="utf-8", errors="replace").read()
+    except OSError as exc:
+        print(f"agency-lint: {exc}", file=sys.stderr)
+        return [], 0
+    nlp = _parser()
+    rows, words = [], 0
+    for n, clean, raw in prose_lines(text):
+        words += len(raw.split())
+        if nlp is None:
+            for m in DISGUISED_BE.finditer(clean):
+                rows.append((n, "DISGUISED-BE", m.group(0), raw))
+            continue
+        doc = nlp(clean)
+        for tok in doc:
+            if tok.pos_ not in ("VERB", "AUX"):
+                if loose_there(tok):
+                    rows.append((n, "LOOSE-THERE", tok.text, raw))
+                continue
+            lemma = tok.lemma_.lower()
+            subj = subject_of(tok)
+            if subj is None:
+                continue
+            kind = kind_of(subj)
+            if (lemma in ("serve", "act", "function") and kind != "person"
+                    and any(c.dep_ == "prep" and c.lower_ == "as" for c in tok.children)):
+                rows.append((n, "DISGUISED-BE", span_of(subj, tok, " as"), raw))
+                continue
+            if lemma == "play" and kind != "person" and any(
+                    c.lower_ in ("role", "part") and c.i + 1 < len(doc)
+                    and doc[c.i + 1].lower_ == "of" for c in tok.subtree):
+                rows.append((n, "DISGUISED-BE", span_of(subj, tok, " the role of"), raw))
+                continue
+            if kind != "thing":
+                continue
+            if lemma in ("serve", "act", "function") and any(
+                    c.dep_ == "prep" and c.lower_ == "as" for c in tok.children):
+                pass  # handled below, where an unknown subject also counts
+            elif lemma in MIND_VERBS and tok.tag_ != "VBN":
+                rows.append((n, "THING-MINDS", span_of(subj, tok), raw))
+            elif lemma in TRAVEL_VERBS or (lemma in TRAVEL_IF_NETWORK and NETWORK.search(tok.sent.text)):
+                rows.append((n, "TRAVEL", span_of(subj, tok), raw))
+            elif lemma in ("get", "let") and any(
+                    c.dep_ in ("prt", "advmod") and c.lower_ == "in" for c in tok.children):
+                rows.append((n, "TRAVEL", span_of(subj, tok, " ... in"), raw))
+    rows.sort(key=lambda r: r[0])
+    return rows, words
+
+
+ADVICE = {
+    "DISGUISED-BE": "name who acts and what they do with it",
+    "THING-MINDS": "a person decides; the program enforces; the document states",
+    "TRAVEL": "a connection reaches a port; sshd accepts a key; UFW admits the connection",
+    "LOOSE-THERE": "name the host, port, file or service",
+}
+
+
+def main(args):
+    rate = "--rate" in args
+    how = "--how" in args
+    args = [a for a in args if a not in ("--rate", "--how")]
+    if not args:
+        print(__doc__.strip())
+        return 0
+    if how:
+        _parser()
+        print(f"agency-lint: reading grammar with {METHOD}")
+    total, blocks = 0, []
+    for path in args:
+        rows, words = scan(path)
+        total += len(rows)
+        if not rows:
+            continue
+        lines = [f"\n== agency-lint: {path} ==  ({len(rows)} to read)"]
+        for ln, kind, span, ctx in rows:
+            snip = " ".join(ctx.split())
+            snip = snip if len(snip) < 96 else snip[:93] + "…"
+            lines.append(f"    {ln:>4}: [{kind}] “{span}” — {snip}")
+        if rate and words:
+            lines.append(f"\n    {words:,} words · {len(rows) * 1000.0 / words:.2f} per 1,000")
+        blocks.append("\n".join(lines))
+    if _NLP is None:
+        print("agency-lint: spaCy not found. THING-MINDS and LOOSE-THERE did not run."
+              "\n  ~/pipeline-venv/bin/python -m pip install spacy click"
+              "\n  ~/pipeline-venv/bin/python -m spacy download en_core_web_sm")
+    if total:
+        print("\n".join(blocks))
+        print("\n  (report, never a rewrite. Ask of each flag: who acts here?")
+        for k, v in ADVICE.items():
+            print(f"   {k:<13} {v}")
+        print("   A person judges. A quotation stays as its author wrote it.)")
+    else:
+        print("agency-lint: no misplaced agency in " + ", ".join(args))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

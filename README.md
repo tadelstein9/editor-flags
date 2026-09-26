@@ -25,6 +25,7 @@ scripts/chip-lint FILE
 | `chip-lint` | labels and stretches with no finite verb |
 | `defensive-lint` | prose that protects the writer instead of informing the reader |
 | `nothing-lint` | the absolute negative used as emphasis |
+| `agency-lint` | a protocol, program or document doing what only a person does; a network told as a trip |
 
 `chip-lint` reads the verb with spaCy where spaCy is installed, and falls back to a word list where it is not. Every report names which test produced it, and `chip-lint --how FILE` says so before it reads anything.
 
@@ -41,6 +42,8 @@ The fallback list holds about sixty verbs. It misses *spoke*, *rebuilt*, *rode*,
 
 Both programs skip markup, quoted speech and wholly italic lines. People speak in fragments, a `<div>` is a typesetting instruction, and an italic line is usually something the writer is reporting rather than writing.
 
+`agency-lint` flags a technical sentence that gives a thing the job of a person or the body of a traveler: *SSH decides*, *the manual promises*, *the endpoint serves as*, *a computer arrives there*, *paris-07 knocks on port 22*. It reads the grammar with spaCy and flags a subject only when it names a computer, a program, a protocol, a host, a setting or a document; when it cannot tell, it stays quiet. On one author's published prose it runs 0.02 to 0.27 flags per 1,000 words, and on machine drafts that carry the fault, 0.64 to 0.87. Its skill carries four faults no parser sees: one verb standing in for a process, two registers in one sentence, a fact that turns into an instruction without a transition, and a state that seems to contradict itself.
+
 Mixed register and tech-speak have no program. One mouth, one dialect. If the speech cannot name who acts, it is a meeting agenda. Put a person in a room, with a motive, a constraint, and a consequence.
 
 ```
@@ -48,9 +51,11 @@ python3 tests/test-defensive-lint.py
 python3 tests/test-had-lint.py
 python3 tests/test-that-lint.py
 python3 tests/test-chip-lint.py
+python3 tests/test-nothing-lint.py
+python3 tests/test-agency-lint.py
 ```
 
-Twenty-one checks. All twenty-one passed on the tree that shipped.
+Ninety-five checks across six programs. All ninety-five passed on 26 September 2026.
 
 ## Skills
 
@@ -63,6 +68,7 @@ npx skills add tadelstein9/editor-flags
 - `tense-normalize` — simple past unless a time shift must be marked
 - `expository-phrase` — gather, verb, objective; cut tautology and needless *that*-clauses
 - `mixed-register` — one mouth, no chips, tech-speak becomes human action
+- `agency-lint` — who acts in a technical sentence: the person decides, the program enforces, the connection reaches a port
 
 On a file the author wrote, flag and stop. The author judges. Do not write past perfect in a new draft. Editors flag it.
 
