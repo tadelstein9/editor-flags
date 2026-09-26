@@ -83,7 +83,7 @@ program do what programs do: listen, read, enforce, accept, refuse, log.
 
 The verbs that need a mind: decide, know, want, think, believe,
 understand, remember, choose, promise, teach, hope, expect, trust,
-refuse, assume, notice.
+assume, notice. A program may refuse: sshd refuses a key, and that stays.
 
 ### 3. TRAVEL — a network told as a trip
 

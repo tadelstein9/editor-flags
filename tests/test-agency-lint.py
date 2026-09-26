@@ -78,6 +78,7 @@ check("the rewrite", "In this section you choose which accounts may log in over 
       "and the SSH server on paris-04, the program sshd, enforces your choice.", None)
 check("admits and accepts", "Wait 35 seconds and connect again: UFW admits the connection, "
       "and sshd accepts your key.", None)
+check("a program refuses", "sshd refused the password. UFW dropped paris-07.", None)
 check("there is", "There is one rule in the list, and there are two addresses.", None)
 check("a quotation stays", 'The page quoted the draft: "SSH decides who gets in."', None)
 check("inline code stays", "Run `the server decides` as a test string.", None)

@@ -86,7 +86,7 @@ NETWORK = re.compile(
 MIND_VERBS = {
     "decide", "know", "want", "think", "believe", "understand", "remember",
     "forget", "choose", "promise", "teach", "hope", "expect", "wish", "prefer",
-    "trust", "care", "refuse", "agree", "doubt", "fear", "intend", "worry",
+    "trust", "care", "agree", "doubt", "fear", "intend", "worry",
     "insist", "assume", "judge", "notice", "realize",
 }
 
