@@ -168,7 +168,7 @@ INLINE_CODE = re.compile(r"`([^`]+)`")
 SENTENCE = re.compile(r".+?(?:[.!?](?=\s|$)|$)")
 ACRONYM = re.compile(r"\b[A-Z][A-Z0-9]{1,}s?\b")
 
-APPOSITION = re.compile(r"^[^.;:]{0,60}?,\s+(?:a|an|the|one|short for|its|his|her|their)\b", re.I)
+APPOSITION = re.compile(r"^[^.;:]{0,60}?,\s+(?:a|an|the|one|short for|its|his|her|their|which|that is|used alone)\b", re.I)
 PAREN = re.compile(r"^\S{0,12}\s*\(", re.I)
 DEF_AFTER = re.compile(
     r"^[`'\"]?,?\s*(?:\([^)]*\)\s*)?(?:means|meant|stands for|short for|refers to|, which means)\b", re.I)
@@ -180,7 +180,8 @@ CATEGORY_BEFORE = re.compile(
 NAMED_AFTER = re.compile(r"\b(?:a|an)\s+[^,]{3,80},\s*(?:its|their|the|his|her)?\s*`?$", re.I)
 # "An SSH key takes the place of a password"
 DEF_VERB_AFTER = re.compile(
-    r"^[`'\"]?s?\s+(?:takes the place of|works like|does the job of|holds|keeps|carries)\b", re.I)
+    r"^[`'\"]?s?\s+(?:on port \d+\s+)?(?:takes the place of|works like|does the job of|holds|keeps|"
+    r"carries|turns|stops|starts|lists|names|marks|records)\b", re.I)
 COMMAND_WORK = re.compile(
     r"^\S*\s*(?:command\s+)?(?:lists|prints|counts|shows|keeps|picks|reads|"
     r"writes|checks|tests|makes|creates|adds|removes|deletes|copies|sends|"
@@ -221,7 +222,9 @@ def initials_match(before, acro):
     letters = acro.rstrip("s")
     words = re.findall(r"[A-Za-z][\w-]*", before)[-(len(letters) + 3):]
     caps = [w[0].upper() for w in words if w[0].isupper()]
-    return "".join(caps).endswith(letters) or "".join(caps) == letters
+    joined = "".join(caps)
+    return joined.endswith(letters) or joined == letters or \
+        (len(joined) >= 2 and letters.startswith(joined[-2:]) and len(letters) - 2 <= 1)
 
 
 def explained_here(sentence, start, end, kind):
@@ -232,11 +235,14 @@ def explained_here(sentence, start, end, kind):
         return True
     if CATEGORY_BEFORE.search(before) or NAMED_AFTER.search(before):
         return True
-    if kind == "term" and start < 12 and DEF_VERB_AFTER.match(after):
+    if kind == "term" and start < 20 and DEF_VERB_AFTER.match(after):
         return True
     if kind == "command" and COMMAND_WORK.match(after.lstrip("`")):
         return True
     if kind == "acronym" and initials_match(before.rstrip(" ,("), sentence[start:end]):
+        return True
+    # "the older form of Internet address, IPv4" -- named right after its description
+    if re.search(r"\b(?:the|a|an)\s+[^,]{3,80},\s*$", before):
         return True
     if DEF_AFTER.match(after) or DEF_AFTER.match(after.lstrip(", ")):
         return True
@@ -262,6 +268,8 @@ def find_terms(sentence, terms):
     low = sentence.lower()
     for t in terms:
         for m in re.finditer(r"(?<![\w/.$-])" + re.escape(t) + r"(?:s|es)?(?![\w-])", low):
+            if t == "log" and re.match(r"(?:s|ged|ging)?\s+(?:in|into|on|out)\b", low[m.end():]):
+                continue
             if free(m.start(), m.end()):
                 taken.append((m.start(), m.end()))
                 yield m.start(), m.end(), t, "term"
