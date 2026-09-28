@@ -93,6 +93,21 @@ check("a house key is plain English", r.get("key"), None)
 r = run("SSH listens on port 22.\n", known={"port", "ssh"})
 check("--known skips a term an earlier chapter cleared", r.get("port"), None)
 
+# LEDGER: a word one chapter explains stays quiet in the next.
+with tempfile.TemporaryDirectory() as d:
+    ch2 = os.path.join(d, "chapter-02.md"); ch3 = os.path.join(d, "chapter-03.md")
+    ledger = os.path.join(d, "cleared-terms.tsv")
+    open(ch2, "w").write("A program listens on a port, a number from 0 to 65535.\n")
+    open(ch3, "w").write("paris-05 listens on port 22.\n")
+    import contextlib, io
+    with contextlib.redirect_stdout(io.StringIO()):
+        f.main(["--emit", ledger, ch2])
+    known = {w.lower() for w in f.load_list(ledger)}
+    rows = {r[2].lower(): r[1] for r in f.scan(ch3, TERMS, known)}
+    check("--emit then --known carries port to the next chapter", rows.get("port"), None)
+    line = open(ledger).read().strip()
+    check("ledger names the chapter and line", line, "port\tchapter-02.md\t1")
+
 print()
 print("all passed" if not FAILS else f"{FAILS} failed")
 sys.exit(1 if FAILS else 0)

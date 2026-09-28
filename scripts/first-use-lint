@@ -13,6 +13,13 @@ draft, so a program has to point at it.
   first-use-lint --all FILE                also list the terms the page explains in time
   first-use-lint --known LIST FILE         skip terms an earlier chapter cleared
   first-use-lint --terms LIST FILE         add a book's own terms to the list
+  first-use-lint --emit LEDGER FILE        add each term FILE explains to a book's ledger
+
+The ledger keeps one line per term, "term<TAB>file<TAB>line", where the
+book first explains it. Pass the same ledger to --known on a later chapter,
+and the program skips every word an earlier chapter already cleared.
+--emit never moves a term already in the ledger: the first chapter that
+explains a word keeps it.
 
 A term is:
   - a word or phrase in the trade list below (port, shell, root, sshd, ...),
@@ -193,7 +200,7 @@ def load_list(path):
     words = []
     with open(path, encoding="utf-8") as fh:
         for line in fh:
-            w = line.strip()
+            w = line.split("\t")[0].strip()
             if w and not w.startswith("#"):
                 words.append(w)
     return words
@@ -317,6 +324,7 @@ def scan(path, terms, known):
 
 def main(args):
     show_all = False
+    emit = None
     extra, known = [], set()
     files = []
     i = 0
@@ -324,6 +332,9 @@ def main(args):
         a = args[i]
         if a == "--all":
             show_all = True
+        elif a == "--emit" and i + 1 < len(args):
+            emit = args[i + 1]
+            i += 1
         elif a in ("--terms", "--known") and i + 1 < len(args):
             words = load_list(args[i + 1])
             if a == "--terms":
@@ -343,6 +354,18 @@ def main(args):
     terms = trade_terms(extra)
     for path in files:
         rows = scan(path, terms, known)
+        if emit:
+            have = set()
+            if os.path.exists(emit):
+                have = {w.lower() for w in load_list(emit)}
+            added = 0
+            with open(emit, "a", encoding="utf-8") as fh:
+                for line, label, key, kind, where, sentence in rows:
+                    if label in ("OK", "LATE") and key.lower() not in have:
+                        fh.write(f"{key.lower()}\t{os.path.basename(path)}\t{where}\n")
+                        have.add(key.lower())
+                        added += 1
+            print(f"first-use-lint: {added} terms from {path} added to {emit}")
         faults = [r for r in rows if r[1] != "OK"]
         if not faults and not show_all:
             print(f"first-use-lint: every term in {path} explained where the reader meets it")
