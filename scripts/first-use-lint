@@ -1,0 +1,360 @@
+#!/usr/bin/env python3
+"""first-use-lint — a word the reader meets before the page explains it.
+
+Tom, 28 September 2026. Chapter 2 of a Linux book listed ports 22, 53 and
+631 in section 2.1 and never said what a port was. The drafter read past it
+twice: to a writer who knows the trade, "port" reads as an ordinary word.
+L. Ron Hubbard's study rule says a reader who passes a word he does not
+understand blanks the rest of the page. The writer's job is to clear the
+word where the reader meets it. A writer cannot feel that gap in his own
+draft, so a program has to point at it.
+
+  first-use-lint FILE [FILE ...]           report
+  first-use-lint --all FILE                also list the terms the page explains in time
+  first-use-lint --known LIST FILE         skip terms an earlier chapter cleared
+  first-use-lint --terms LIST FILE         add a book's own terms to the list
+
+A term is:
+  - a word or phrase in the trade list below (port, shell, root, sshd, ...),
+    plus any a --terms file adds, one to a line;
+  - a command in inline code (`grep`, `ss -tln`): its first word;
+  - an acronym of two or more capitals (TCP, IANA, UFW).
+
+The page explains a term, for this program, when a sentence that holds it
+also carries one of these shapes:
+  - an apposition close behind it:  "a port, a number from 0 to 65535"
+                                    "sshd, the SSH server program"
+  - a name after its category:      "a program named sshd", "a file called authorized_keys"
+  - a definition verb:              "UFW means", "SSH, short for Secure Shell",
+                                    "stands for", "which means", "in plain words"
+  - a parenthesis right behind it:  "IANA (the Internet Assigned Numbers Authority)"
+  - for a command, a verb of work:  "The `ss -tln` command lists", "`grep` keeps"
+  - for an acronym, its words just before it, initials matching:
+                                    "the Internet Assigned Numbers Authority, IANA"
+
+It reports two faults:
+  UNEXPLAINED   the page uses the term and never explains it
+  LATE          the page explains the term, but after the reader first met it
+
+A shape is not proof that the explanation works; a person judges that. The
+program only says where the reader meets a word with nothing beside it.
+Skips fenced code, headings, tables and HTML comments; a command's output
+is not prose. Reports. Never rewrites. Always exits 0.
+"""
+import os
+import re
+import sys
+
+# The trade list. Words a newcomer to Linux, networks and Git cannot cash.
+# Ordinary English that the trade also uses ("key", "branch", "push") sits
+# here only in the trade's own phrase, so a sentence about a house key does
+# not flag.
+TRADE = """
+port
+port forward
+tunnel
+shell
+login shell
+command prompt
+terminal
+root
+sudo
+kernel
+daemon
+service
+unit
+socket
+systemd
+sshd
+ssh client
+ssh server
+ssh key
+public key
+private key
+host key
+session key
+key pair
+fingerprint
+authorized_keys
+firewall
+packet
+netfilter
+iptables
+chain
+rule set
+loopback
+ip address
+ipv4
+ipv6
+subnet
+interface
+dns
+resolver
+protocol
+tcp
+udp
+listener
+exit code
+environment variable
+repository
+bare repository
+working copy
+commit
+branch
+clone
+fast-forward
+remote
+setgid
+setuid
+umask
+permissions
+group
+owner
+mode
+inode
+mount
+partition
+filesystem
+package
+package manager
+apt
+distribution
+distro
+log
+journal
+journald
+rsyslog
+auth.log
+syslog
+cron
+timer
+reload
+restart
+host
+hostname
+server
+client
+virtual machine
+container
+cluster
+node
+config file
+configuration file
+flag
+option
+argument
+pipe
+standard output
+stdin
+stdout
+stderr
+path
+home directory
+directory
+man page
+manual page
+"""
+
+# Acronyms a reader of English already holds.
+COMMON_CAPS = {
+    "I", "A", "OK", "US", "USA", "UK", "TV", "PC", "CD", "DVD", "USB", "AM",
+    "PM", "CEO", "FAQ", "PDF", "ID", "II", "III", "IV", "VI", "AI", "IT",
+    "CDT", "CST", "UTC", "GMT", "EST", "PST", "ET", "PT", "NO", "YES",
+}
+
+FENCE = re.compile(r"^\s*(```|~~~)")
+SKIP_LINE = re.compile(r"^\s*(#|\||<!--|-->|\s*$)")
+INLINE_CODE = re.compile(r"`([^`]+)`")
+SENTENCE = re.compile(r".+?(?:[.!?](?=\s|$)|$)")
+ACRONYM = re.compile(r"\b[A-Z][A-Z0-9]{1,}s?\b")
+
+APPOSITION = re.compile(r"^[^.;:]{0,60}?,\s+(?:a|an|the|one|short for|its|his|her|their)\b", re.I)
+PAREN = re.compile(r"^\S{0,12}\s*\(", re.I)
+DEF_AFTER = re.compile(
+    r"^[`'\"]?,?\s*(?:\([^)]*\)\s*)?(?:means|meant|stands for|short for|refers to|, which means)\b", re.I)
+PLAIN = re.compile(r"\bin plain words\b", re.I)
+CATEGORY_BEFORE = re.compile(
+    r"\b(?:(?:a|an|the)\s+(?:[\w-]+\s+){0,6}(?:named|called|known as)|"
+    r"(?:calls?|call it)(?:\s+(?:a|an|the))?)\s+`?$", re.I)
+# "a number a command hands back when it finishes, its exit code"
+NAMED_AFTER = re.compile(r"\b(?:a|an)\s+[^,]{3,80},\s*(?:its|their|the|his|her)?\s*`?$", re.I)
+# "An SSH key takes the place of a password"
+DEF_VERB_AFTER = re.compile(
+    r"^[`'\"]?s?\s+(?:takes the place of|works like|does the job of|holds|keeps|carries)\b", re.I)
+COMMAND_WORK = re.compile(
+    r"^\S*\s*(?:command\s+)?(?:lists|prints|counts|shows|keeps|picks|reads|"
+    r"writes|checks|tests|makes|creates|adds|removes|deletes|copies|sends|"
+    r"opens|asks|tells|finds|searches|runs|starts|stops|turns|gives|returns|"
+    r"reports|displays|changes|sets)\b", re.I)
+
+
+def load_list(path):
+    words = []
+    with open(path, encoding="utf-8") as fh:
+        for line in fh:
+            w = line.strip()
+            if w and not w.startswith("#"):
+                words.append(w)
+    return words
+
+
+def trade_terms(extra):
+    terms = [t for t in TRADE.split("\n") if t.strip()] + list(extra)
+    # Longest first, so "public key" wins over a shorter term inside it.
+    return sorted(set(t.lower() for t in terms), key=len, reverse=True)
+
+
+def prose_lines(text):
+    """Yield (line number, line) for lines a writer wrote as prose."""
+    fenced = False
+    for n, line in enumerate(text.split("\n"), 1):
+        if FENCE.match(line):
+            fenced = not fenced
+            continue
+        if fenced or SKIP_LINE.match(line):
+            continue
+        yield n, line
+
+
+def initials_match(before, acro):
+    """True when the words just before an acronym spell it."""
+    letters = acro.rstrip("s")
+    words = re.findall(r"[A-Za-z][\w-]*", before)[-(len(letters) + 3):]
+    caps = [w[0].upper() for w in words if w[0].isupper()]
+    return "".join(caps).endswith(letters) or "".join(caps) == letters
+
+
+def explained_here(sentence, start, end, kind):
+    """Does this sentence explain the term found at sentence[start:end]?"""
+    after = sentence[end:]
+    before = sentence[:start]
+    if APPOSITION.match(after) or PAREN.match(after):
+        return True
+    if CATEGORY_BEFORE.search(before) or NAMED_AFTER.search(before):
+        return True
+    if kind == "term" and start < 12 and DEF_VERB_AFTER.match(after):
+        return True
+    if kind == "command" and COMMAND_WORK.match(after.lstrip("`")):
+        return True
+    if kind == "acronym" and initials_match(before.rstrip(" ,("), sentence[start:end]):
+        return True
+    if DEF_AFTER.match(after) or DEF_AFTER.match(after.lstrip(", ")):
+        return True
+    if PLAIN.search(sentence):
+        return True
+    return False
+
+
+def find_terms(sentence, terms):
+    """Yield (start, end, key, kind) for each term in one sentence."""
+    taken = []
+
+    def free(a, b):
+        return all(b <= x or a >= y for x, y in taken)
+
+    for m in INLINE_CODE.finditer(sentence):
+        taken.append((m.start(), m.end()))
+        parts = m.group(1).split()
+        word = parts[0].rstrip(",.") if parts else ""
+        if word and re.match(r"^[a-z][\w.-]*$", word) and "/" not in word \
+                and "=" not in word and not word.endswith((".conf", ".md", ".txt", ".log")):
+            yield m.start(), m.end(), word, "command"
+    low = sentence.lower()
+    for t in terms:
+        for m in re.finditer(r"(?<![\w/.$-])" + re.escape(t) + r"(?:s|es)?(?![\w-])", low):
+            if free(m.start(), m.end()):
+                taken.append((m.start(), m.end()))
+                yield m.start(), m.end(), t, "term"
+    for m in ACRONYM.finditer(sentence):
+        acro = m.group(0)
+        key = acro.rstrip("s") if acro.endswith("s") and acro[:-1].isupper() else acro
+        if key in COMMON_CAPS or not free(m.start(), m.end()):
+            continue
+        # A shouted word or a log field, not an acronym; a piece of CD-ROM.
+        if (len(key) > 5 and not any(c.isdigit() for c in key)) or \
+                (m.start() > 0 and sentence[m.start() - 1] in "-=["):
+            continue
+        if key.lower() in terms:
+            continue
+        taken.append((m.start(), m.end()))
+        yield m.start(), m.end(), key, "acronym"
+
+
+def scan(path, terms, known):
+    with open(path, encoding="utf-8") as fh:
+        text = fh.read()
+    first = {}      # key -> (line, kind, sentence)
+    cleared = {}    # key -> line of first explanation
+    for n, line in prose_lines(text):
+        for sm in SENTENCE.finditer(line):
+            sentence = sm.group(0)
+            for start, end, key, kind in find_terms(sentence, terms):
+                norm = key.lower()
+                if norm in known:
+                    continue
+                if norm not in first:
+                    first[norm] = (n, kind, sentence.strip(), key)
+                if norm not in cleared and explained_here(sentence, start, end, kind):
+                    cleared[norm] = n
+    report = []
+    for norm, (line, kind, sentence, key) in first.items():
+        if norm not in cleared:
+            report.append((line, "UNEXPLAINED", key, kind, None, sentence))
+        elif cleared[norm] > line:
+            report.append((line, "LATE", key, kind, cleared[norm], sentence))
+        else:
+            report.append((line, "OK", key, kind, cleared[norm], sentence))
+    return sorted(report)
+
+
+def main(args):
+    show_all = False
+    extra, known = [], set()
+    files = []
+    i = 0
+    while i < len(args):
+        a = args[i]
+        if a == "--all":
+            show_all = True
+        elif a in ("--terms", "--known") and i + 1 < len(args):
+            words = load_list(args[i + 1])
+            if a == "--terms":
+                extra += words
+            else:
+                known |= {w.lower() for w in words}
+            i += 1
+        elif a in ("-h", "--help"):
+            print(__doc__)
+            return 0
+        else:
+            files.append(a)
+        i += 1
+    if not files:
+        print(__doc__)
+        return 0
+    terms = trade_terms(extra)
+    for path in files:
+        rows = scan(path, terms, known)
+        faults = [r for r in rows if r[1] != "OK"]
+        if not faults and not show_all:
+            print(f"first-use-lint: every term in {path} explained where the reader meets it")
+            continue
+        print(f"== first-use-lint: {path} ==  ({len(faults)} to read)")
+        for line, label, key, kind, where, sentence in rows:
+            if label == "OK" and not show_all:
+                continue
+            what = {"command": "command", "acronym": "acronym", "term": "term"}[kind]
+            tail = f" (explained at line {where})" if label == "LATE" else ""
+            if label == "OK":
+                tail = ""
+            short = sentence if len(sentence) <= 90 else sentence[:87] + "..."
+            print(f"  {line:5}: [{label}] {what} “{key}”{tail} — {short}")
+        print()
+        print("  (report, never a rewrite. For each: where does the reader first meet")
+        print("   the word, and what does the page say it is? Clear it there: say what")
+        print("   kind of thing it is, then name it. A person judges.)")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

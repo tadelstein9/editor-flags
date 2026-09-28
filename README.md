@@ -26,6 +26,7 @@ scripts/chip-lint FILE
 | `defensive-lint` | prose that protects the writer instead of informing the reader |
 | `nothing-lint` | the absolute negative used as emphasis |
 | `agency-lint` | a protocol, program or document doing what only a person does; a network told as a trip |
+| `first-use-lint` | a trade word, a command or an acronym the reader meets before the page says what it is |
 
 `chip-lint` reads the verb with spaCy where spaCy is installed, and falls back to a word list where it is not. Every report names which test produced it, and `chip-lint --how FILE` says so before it reads anything.
 
@@ -44,6 +45,8 @@ Both programs skip markup, quoted speech and wholly italic lines. People speak i
 
 `agency-lint` flags a technical sentence that gives a thing the job of a person or the body of a traveler: *SSH decides*, *the manual promises*, *the endpoint serves as*, *a computer arrives there*, *paris-07 knocks on port 22*. It reads the grammar with spaCy and flags a subject only when it names a computer, a program, a protocol, a host, a setting or a document; when it cannot tell, it stays quiet. Before release it ran against published human prose as a control, and the false alarms it raised there came out. Its skill carries four faults no parser sees: one verb standing in for a process, two registers in one sentence, a fact that turns into an instruction without a transition, and a state that seems to contradict itself.
 
+`first-use-lint` follows L. Ron Hubbard's study rule from the writer's side: a reader who passes a word he does not understand blanks the rest of the page, so the page clears each word where the reader meets it. It lists every trade word, inline command and acronym at its first use, and reports UNEXPLAINED when the page never says what the word is, and LATE when it says so only after the reader met it. It counts an explanation when the sentence carries one of a few fixed shapes: an apposition (*a port, a number from 0 to 65535*), a name after its category (*a program named sshd*), *short for*, *means*, *calls*, or the words an acronym stands for right before it. `--known LIST` skips terms an earlier chapter cleared; `--terms LIST` adds a book's own. A shape proves nothing about whether the explanation works; a person judges that.
+
 Mixed register and tech-speak have no program. One mouth, one dialect. If the speech cannot name who acts, it is a meeting agenda. Put a person in a room, with a motive, a constraint, and a consequence.
 
 ```
@@ -53,6 +56,7 @@ python3 tests/test-that-lint.py
 python3 tests/test-chip-lint.py
 python3 tests/test-nothing-lint.py
 python3 tests/test-agency-lint.py
+python3 tests/test-first-use-lint.py
 ```
 
 Ninety-five checks across six programs. All ninety-five passed on 26 September 2026.
