@@ -102,6 +102,13 @@ check("short words below the minimum",
       run("The card lost its card slot.\n"),
       [])
 
+check("a quotation that ends a sentence ends it",
+      run('The manual warns that a timer "will immediately elapse." paris-04 booted before you wrote the timer.\n'),
+      [])
+check("underscores inside a name stay",
+      run("sshd reads sshd_config and then the files in sshd_config.d in order.\n"),
+      [])
+
 # --- OPENER and RUN -----------------------------------------------------
 check("same opening twice",
       run("The node exporter counts the numbers. The node exporter publishes them on port 9100.\n"),

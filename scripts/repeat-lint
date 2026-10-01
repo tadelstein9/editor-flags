@@ -93,10 +93,13 @@ def prose_lines(text):
 
 def clean(line):
     line = re.sub(r"`[^`]*`", " CODE ", line)
+    # a quotation that ends a sentence keeps the sentence's end
+    line = re.sub(r'"[^"]*?([.!?])"', r" QUOTE\1 ", line)
+    line = re.sub(r"“[^”]*?([.!?])”", r" QUOTE\1 ", line)
     line = re.sub(r'"[^"]*"', " QUOTE ", line)
     line = re.sub(r"“[^”]*”", " QUOTE ", line)
     line = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", line)  # markdown link text only
-    line = re.sub(r"[*_]{1,3}", "", line)
+    line = re.sub(r"(?<![A-Za-z0-9])[*_]{1,3}|[*_]{1,3}(?![A-Za-z0-9])", "", line)  # emphasis, not sshd_config
     line = re.sub(r"^\s*([-*+]|\d+\.)\s+", "", line)      # list marker
     return line
 
@@ -200,7 +203,7 @@ def scan(path, names=False, keep=(), minlen=5):
 
 
 def shown(sent):
-    sent = sent.replace(" CODE ", " `…` ").replace(" QUOTE ", " “…” ")
+    sent = sent.replace(" CODE ", " `…` ").replace(" QUOTE", " “…”")
     return re.sub(r"\s+", " ", sent).strip()
 
 
