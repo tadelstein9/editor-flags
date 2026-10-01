@@ -27,6 +27,7 @@ scripts/chip-lint FILE
 | `nothing-lint` | the absolute negative used as emphasis |
 | `agency-lint` | a protocol, program or document doing what only a person does; a network told as a trip |
 | `first-use-lint` | a trade word, a command or an acronym the reader meets before the page says what it is |
+| `repeat-lint` | a word used twice in one sentence; sentences in a row that open the same way |
 
 `chip-lint` reads the verb with spaCy where spaCy is installed, and falls back to a word list where it is not. Every report names which test produced it, and `chip-lint --how FILE` says so before it reads anything.
 
@@ -47,6 +48,8 @@ Both programs skip markup, quoted speech and wholly italic lines. People speak i
 
 `first-use-lint` follows L. Ron Hubbard's study rule from the writer's side: a reader who passes a word he does not understand blanks the rest of the page, so the page clears each word where the reader meets it. It lists every trade word, inline command and acronym at its first use, and reports UNEXPLAINED when the page never says what the word is, and LATE when it says so only after the reader met it. It counts an explanation when the sentence carries one of a few fixed shapes: an apposition (*a port, a number from 0 to 65535*), a name after its category (*a program named sshd*), *short for*, *means*, *calls*, or the words an acronym stands for right before it. `--known LIST` skips terms an earlier chapter cleared; `--terms LIST` adds a book's own. A shape proves nothing about whether the explanation works; a person judges that.
 
+`repeat-lint` follows Hubbard's observation that repetition hypnotizes the reader. It flags a word of five letters or more used twice in one sentence, plurals counted as the same word, and two sentences in a row that open with the same words, or three that open with the same word. It skips code, quotations, tables, block quotes and names; `--names` checks names too, and `--keep LIST` spares a book's fixed names. The skill file lists the repairs that worked, in order: a pronoun, a true synonym, a cut. A synonym that changes the fact is no repair; a person judges.
+
 Mixed register and tech-speak have no program. One mouth, one dialect. If the speech cannot name who acts, it is a meeting agenda. Put a person in a room, with a motive, a constraint, and a consequence.
 
 ```
@@ -57,6 +60,7 @@ python3 tests/test-chip-lint.py
 python3 tests/test-nothing-lint.py
 python3 tests/test-agency-lint.py
 python3 tests/test-first-use-lint.py
+python3 tests/test-repeat-lint.py
 ```
 
 Ninety-five checks across six programs. All ninety-five passed on 26 September 2026.

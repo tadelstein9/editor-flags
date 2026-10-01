@@ -1,0 +1,251 @@
+#!/usr/bin/env python3
+"""repeat-lint — the same word twice in one sentence, the same opening twice in a row.
+
+Tom, 1 October 2026. Reading a Linux book in draft, he stopped at "Back
+up each computer to a different computer" and said the word repeated. Then
+he named the reason: repetition hypnotizes the reader (L. Ron Hubbard). A
+reader who meets "computer" twice in eleven words stops reading the
+sentence and starts hearing a drone. The writer cannot hear it in his own
+draft, so a program points at it. A person picks the other word, because
+only a person can tell whether "system" stays true where "computer" stood.
+
+  repeat-lint FILE [FILE ...]        report
+  repeat-lint --names FILE           also flag proper names (Kubernetes ... Kubernetes)
+  repeat-lint --keep LIST FILE       never flag the words in LIST, one to a line
+  repeat-lint --min N FILE           shortest word to check (default 5 letters)
+
+It flags:
+  REPEAT   a word of five letters or more used twice in one sentence.
+           Plurals count as the same word: computer, computers.
+  OPENER   two sentences in a row, in one paragraph, that open with the
+           same words: "The node exporter ... The node exporter ..."
+  RUN      three sentences or more in a row that open with the same word:
+           "You ... You ... You ..."
+
+It reads prose only. It skips fenced and indented code, tables, headings,
+block quotes, inline code and anything inside quotation marks, because a
+command, its output and another writer's words stay as they are.
+
+A name, a word capitalized inside the sentence, is left alone unless you
+pass --names: "the Linux Foundation's home for Linux" names two things.
+Pass --keep for a book's own fixed names, such as "command center."
+
+It reports and never rewrites. Never run it on the author's own sentences
+to correct them; on his prose it flags and stops.
+"""
+import re
+import sys
+
+STOP = set("""
+about above across after again against along among another around because
+before behind being below beside between beyond could doing during either
+every first having himself herself itself might never other others ought
+second shall should since their theirs there these thing things third
+those three through under until where whether which while whose within
+without would yours ourselves themselves anything everything nothing
+something someone anyone everyone nobody always often still already
+""".split())
+
+ARTICLES = {"the", "a", "an"}
+
+FENCE = re.compile(r"^\s*(```|~~~)")
+WORD = re.compile(r"[A-Za-z][A-Za-z'’-]*[A-Za-z]|[A-Za-z]")
+SPLIT = re.compile(r"(?<=[.!?;:])\s+")
+
+
+def stem(w):
+    w = w.lower().replace("’", "'")
+    if w.endswith("'s"):
+        w = w[:-2]
+    w = w.rstrip("'")
+    if len(w) > 4 and w.endswith("ies"):
+        return w[:-3] + "y"
+    if len(w) > 4 and re.search(r"(ss|x|ch|sh)es$", w):
+        return w[:-2]
+    if len(w) > 4 and w.endswith("s") and not w.endswith(("ss", "us", "is")):
+        return w[:-1]
+    return w
+
+
+def prose_lines(text):
+    """Yield (line number, line, paragraph id) for lines that hold prose."""
+    incode = False
+    para = 0
+    for n, line in enumerate(text.split("\n"), 1):
+        if FENCE.match(line):
+            incode = not incode
+            para += 1
+            continue
+        if incode:
+            continue
+        s = line.strip()
+        if (not s or line.startswith(("    ", "\t")) or s.startswith(("#", "|", ">", "<!--"))):
+            para += 1
+            continue
+        if re.match(r"^\s*([-*+]|\d+\.)\s+", line):
+            # a list item stands alone: a list is parallel on purpose
+            para += 1
+            yield n, line, para
+            para += 1
+            continue
+        yield n, line, para
+
+
+def clean(line):
+    line = re.sub(r"`[^`]*`", " CODE ", line)
+    line = re.sub(r'"[^"]*"', " QUOTE ", line)
+    line = re.sub(r"“[^”]*”", " QUOTE ", line)
+    line = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", line)  # markdown link text only
+    line = re.sub(r"[*_]{1,3}", "", line)
+    line = re.sub(r"^\s*([-*+]|\d+\.)\s+", "", line)      # list marker
+    return line
+
+
+def tokens(sentence):
+    out = []
+    for m in WORD.finditer(sentence):
+        w = m.group(0)
+        # a word glued to digits is a host or a version: paris-04, v1.36
+        end = m.end()
+        if end < len(sentence) and sentence[end].isdigit():
+            continue
+        if sentence[end:end + 1] == "-" and sentence[end + 1:end + 2].isdigit():
+            continue
+        if m.start() > 0 and sentence[m.start() - 1].isdigit():
+            continue
+        # a word inside a path or a repository name: minio/minio, /srv/git
+        if (end < len(sentence) and sentence[end] == "/") or (m.start() > 0 and sentence[m.start() - 1] == "/"):
+            continue
+        if w in ("CODE", "QUOTE"):
+            continue
+        out.append((w, m.start()))
+    return out
+
+
+def is_name(word, pos, first_pos):
+    return word[0].isupper() and pos != first_pos
+
+
+def opener(toks):
+    words = [w.lower() for w, _ in toks]
+    if not words:
+        return None
+    if words[0] in ARTICLES:
+        return " ".join(words[:3]) if len(words) >= 3 else None
+    return " ".join(words[:2]) if len(words) >= 2 else None
+
+
+def load_keep(path):
+    keep = set()
+    with open(path) as fh:
+        for raw in fh:
+            raw = raw.strip()
+            if raw and not raw.startswith("#"):
+                keep.add(raw.lower())
+    return keep
+
+
+def scan(path, names=False, keep=(), minlen=5):
+    text = open(path, encoding="utf-8").read()
+    keep = {k.lower() for k in keep}
+    keep_words = {stem(k) for k in keep if " " not in k}
+    keep_phrases = [k for k in keep if " " in k]
+    faults = []
+    prev = None          # (para, opener, first word, line)
+    run = []             # lines of the current same-first-word run
+    run_word = None
+    for n, line, para in prose_lines(text):
+        body = clean(line)
+        low = body.lower()
+        for ph in keep_phrases:
+            low = low.replace(ph, " ")
+        for sent in SPLIT.split(body):
+            s_low = sent.lower()
+            for ph in keep_phrases:
+                if ph in s_low:
+                    sent = re.sub(re.escape(ph), " KEPT ", sent, flags=re.I)
+            toks = [(w, p) for w, p in tokens(sent) if w != "KEPT"]
+            if not toks:
+                continue
+            first_pos = toks[0][1]
+            seen = {}
+            for w, p in toks:
+                if len(w) < 3:
+                    continue
+                st = stem(w)
+                if st in STOP or st in keep_words or w.lower() in STOP:
+                    continue
+                if not names and is_name(w, p, first_pos):
+                    continue
+                seen.setdefault(st, []).append(w)
+            for st, ws in seen.items():
+                # a short word counts when one of its forms reaches the minimum: copy, copies
+                if len(ws) > 1 and max(len(w) for w in ws) >= minlen:
+                    faults.append((n, "REPEAT", ws[0].lower().replace("’", "'"), len(ws), sent.strip()))
+            op = opener(toks)
+            fw = toks[0][0].lower()
+            if prev and prev[0] == para and op and op == prev[1]:
+                faults.append((n, "OPENER", op, 2, sent.strip()))
+            if prev and prev[0] == para and fw == run_word and fw not in ARTICLES:
+                run.append(n)
+            else:
+                if len(run) >= 3:
+                    faults.append((run[0], "RUN", run_word, len(run), f"{len(run)} sentences in a row open with this word"))
+                run, run_word = [n], fw
+            prev = (para, op, fw, n)
+    if len(run) >= 3:
+        faults.append((run[0], "RUN", run_word, len(run), f"{len(run)} sentences in a row open with this word"))
+    faults.sort(key=lambda f: f[0])
+    return faults
+
+
+def shown(sent):
+    sent = sent.replace(" CODE ", " `…` ").replace(" QUOTE ", " “…” ")
+    return re.sub(r"\s+", " ", sent).strip()
+
+
+def main(args):
+    names = False
+    keep = set()
+    minlen = 5
+    files = []
+    i = 0
+    while i < len(args):
+        a = args[i]
+        if a in ("-h", "--help"):
+            print(__doc__)
+            return 0
+        if a == "--names":
+            names = True
+        elif a == "--keep":
+            i += 1
+            keep |= load_keep(args[i])
+        elif a == "--min":
+            i += 1
+            minlen = int(args[i])
+        else:
+            files.append(a)
+        i += 1
+    if not files:
+        print(__doc__)
+        return 2
+    for path in files:
+        faults = scan(path, names, keep, minlen)
+        if not faults:
+            print(f"repeat-lint: {path}: no word repeats inside a sentence, no opening repeats")
+            continue
+        print(f"== repeat-lint: {path} ==  ({len(faults)} to read)")
+        for line, label, word, count, sent in faults:
+            sent = shown(sent)
+            short = sent if len(sent) <= 90 else sent[:87] + "..."
+            times = f" ×{count}" if label == "REPEAT" else ""
+            print(f"  {line:5}: [{label}] “{word}”{times} — {short}")
+        print()
+        print("  (report, never a rewrite. Repetition hypnotizes the reader. For each:")
+        print("   keep one, and give the other a true synonym, a pronoun, or cut it.")
+        print("   Check the new word still states the fact. A person judges.)")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
