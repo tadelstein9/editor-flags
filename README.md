@@ -28,6 +28,7 @@ scripts/chip-lint FILE
 | `agency-lint` | a protocol, program or document doing what only a person does; a network told as a trip |
 | `first-use-lint` | a trade word, a command or an acronym the reader meets before the page says what it is |
 | `repeat-lint` | a word used twice in one sentence; sentences in a row that open the same way |
+| `reader-lint` | a vague word or a short form that leaves the reader asking "what?" |
 
 `chip-lint` reads the verb with spaCy where spaCy is installed, and falls back to a word list where it is not. Every report names which test produced it, and `chip-lint --how FILE` says so before it reads anything.
 
@@ -50,6 +51,8 @@ Both programs skip markup, quoted speech and wholly italic lines. People speak i
 
 `repeat-lint` follows Hubbard's observation that repetition hypnotizes the reader. It flags a word of five letters or more used twice in one sentence, plurals counted as the same word, and two sentences in a row that open with the same words, or three that open with the same word. It skips code, quotations, tables, block quotes and names; `--names` checks names too, and `--keep LIST` spares a book's fixed names. The skill file lists the repairs that worked, in order: a pronoun, a true synonym, a cut. A synonym that changes the fact is no repair; a person judges.
 
+`reader-lint` flags the words a reader stopped at: a vague word (*the drop*, *a watcher*, *would hurt*, *the room*, *a road*) with the question the reader asked, and a short form the book spells out every time (`--short LIST`, one entry to a line, regular expressions allowed). Its skill, `reader-questions`, carries the reading no program can do: a missing object, a missing place, a list that names no item, a figure of speech, a paragraph that confuses.
+
 Mixed register and tech-speak have no program. One mouth, one dialect. If the speech cannot name who acts, it is a meeting agenda. Put a person in a room, with a motive, a constraint, and a consequence.
 
 ```
@@ -61,6 +64,7 @@ python3 tests/test-nothing-lint.py
 python3 tests/test-agency-lint.py
 python3 tests/test-first-use-lint.py
 python3 tests/test-repeat-lint.py
+python3 tests/test-reader-lint.py
 ```
 
 Ninety-five checks across six programs. All ninety-five passed on 26 September 2026.

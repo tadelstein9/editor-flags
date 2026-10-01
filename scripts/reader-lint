@@ -1,0 +1,155 @@
+#!/usr/bin/env python3
+"""reader-lint — a word that leaves the reader asking "what?"
+
+Tom, 1 October 2026, reading two chapters of a Linux book in draft. He
+stopped at "the drop" and asked what that was. At "would hurt" he asked,
+hurt what? At "needs a person," to do what? At "a watcher," at "what
+stays in the room," at "CKA" and at "Mint." Each word made sense to the
+writer, who knew what he meant, and stopped the reader, who did not. The
+writer cannot feel that stop in his own draft, so a program points at the
+words that caused it. A person writes the repair, because only a person
+knows what actually happened.
+
+  reader-lint FILE [FILE ...]          report
+  reader-lint --words LIST FILE        add a book's own vague words
+  reader-lint --short LIST FILE        a book's abbreviations, each with its full name
+
+It flags:
+  VAGUE   a word or phrase that names no thing and no act: drop, watcher,
+          hurt, the room, a road, make that true. Each flag carries the
+          question the reader asked.
+  SHORT   an abbreviation the book spells out every time: CKA, LFCS, a
+          bare "Mint." Each flag carries the full name.
+
+A LIST file holds one entry to a line, the word, a tab, and the question
+or the full name. A line that starts with re: holds a regular expression:
+  re:(?<!Linux )\\bMint\\b<TAB>Linux Mint
+
+It reads prose only. It skips code, command output, tables, block quotes,
+headings and quotations, because a command, a log line and another
+writer's words stay as they are. "UFW drops the packet" in a sentence
+about the firewall's DROP action is a fact; the program flags it anyway,
+and a person keeps it.
+
+Pairs with nothing-lint (nothing and nobody as the actor), first-use-lint
+(a term the page never explains) and repeat-lint (a word twice). Reports
+and never rewrites.
+"""
+import re
+import sys
+
+VAGUE = [
+    (r"\bdrop(s|ped|ping)?\b(?!-in)", "drop of what? Say what happened: the card lost its connection, UFW threw the request away"),
+    (r"\bthe drop\b(?!-in)", "what's that? Name the event"),
+    (r"\bwatchers?\b", "a watcher of what? Name the tool or the job: monitoring, Prometheus"),
+    (r"\bhurts?\b", "hurt what? Name what stops working"),
+    (r"\bneeds? a person\b", "a person to do what? Name the act"),
+    (r"\bin the room\b|\bthe room\b", "which room? Say the lab's computers, the building"),
+    (r"\broads?\b", "a road? Say the connection, the route, the link"),
+    (r"\bmakes? (it|that|this) true\b|\bmaking (it|that|this) true\b", "makes what true? Say what happens"),
+    (r"\bthe thing\b", "which thing? Name it"),
+    (r"\bstuff\b", "what stuff? Name it"),
+    (r"\bdeal with\b|\bdeals with\b", "deal how? Name the act"),
+    (r"\bhandles?\b", "handles how? Name what it does"),
+]
+
+FENCE = re.compile(r"^\s*(```|~~~)")
+
+
+def prose_lines(text):
+    incode = False
+    for n, line in enumerate(text.split("\n"), 1):
+        if FENCE.match(line):
+            incode = not incode
+            continue
+        if incode:
+            continue
+        s = line.strip()
+        if not s or line.startswith(("    ", "\t")) or s.startswith(("#", "|", ">", "<!--")):
+            continue
+        yield n, line
+
+
+def clean(line):
+    line = re.sub(r"`[^`]*`", " ", line)
+    line = re.sub(r'"[^"]*"', " ", line)
+    line = re.sub(r"“[^”]*”", " ", line)
+    line = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", line)
+    return line
+
+
+def load_list(path):
+    out = []
+    with open(path) as fh:
+        for raw in fh:
+            raw = raw.rstrip("\n")
+            if not raw.strip() or raw.lstrip().startswith("#"):
+                continue
+            key, _, note = raw.partition("\t")
+            key = key.strip()
+            if key.startswith("re:"):
+                pat = key[3:]
+            else:
+                pat = r"\b" + re.escape(key) + r"\b"
+            out.append((pat, key.replace("re:", ""), note.strip()))
+    return out
+
+
+def scan(path, words=(), short=()):
+    text = open(path, encoding="utf-8").read()
+    faults = []
+    vague = [(re.compile(p, re.I), None, q) for p, q in VAGUE]
+    vague += [(re.compile(p, re.I), k, q) for p, k, q in words]
+    shorts = [(re.compile(p), k, full) for p, k, full in short]
+    for n, line in prose_lines(text):
+        body = clean(line)
+        for rx, key, q in vague:
+            for m in rx.finditer(body):
+                # DROP in capitals names the firewall's action, a fact
+                if any(w.isupper() and len(w) > 1 for w in m.group(0).split()):
+                    continue
+                faults.append((n, "VAGUE", m.group(0), q, body.strip()))
+        for rx, key, full in shorts:
+            for m in rx.finditer(body):
+                faults.append((n, "SHORT", m.group(0), f"write {full}", body.strip()))
+    faults.sort(key=lambda f: f[0])
+    return faults
+
+
+def main(args):
+    words, short, files = [], [], []
+    i = 0
+    while i < len(args):
+        a = args[i]
+        if a in ("-h", "--help"):
+            print(__doc__)
+            return 0
+        if a == "--words":
+            i += 1
+            words += load_list(args[i])
+        elif a == "--short":
+            i += 1
+            short += load_list(args[i])
+        else:
+            files.append(a)
+        i += 1
+    if not files:
+        print(__doc__)
+        return 2
+    for path in files:
+        faults = scan(path, words, short)
+        if not faults:
+            print(f"reader-lint: {path}: no vague word, no short form")
+            continue
+        print(f"== reader-lint: {path} ==  ({len(faults)} to read)")
+        for line, label, word, q, body in faults:
+            print(f"  {line:5}: [{label}] “{word}” — {q}")
+        print()
+        print("  (report, never a rewrite. Read the sentence as the reader: what would")
+        print("   they stop and ask? Answer it on the page: name the thing, the act,")
+        print("   the place. A fact the word names correctly stays. A person judges.)")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
