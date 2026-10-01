@@ -64,6 +64,12 @@ check("a quotation is skipped", run('The manual says "the firewall may drop the 
 check("a table is skipped", run("| Watch | Because |\n|---|---|\n| the drop | road |\n"), [])
 check("fenced code is skipped", run("```\niptables -j DROP\n```\n"), [])
 
+check("dead disk", run("The files survive a dead disk.\n"), [("VAGUE", "dead disk")])
+check("a disk dies", run("What happens if a disk dies?\n"), [("VAGUE", "dies")])
+check("a box", run("It installs the product on a customer's box.\n"), [("VAGUE", "box")])
+check("a door", run("You send the work through a narrow door.\n"), [("VAGUE", "door")])
+check("repaired: failed disk", run("The files survive a failed disk.\n"), [])
+
 check("short form flagged", run("The CKA asks you to monitor the cluster.\n", SHORT), [("SHORT", "cka")])
 check("bare Mint flagged", run("Install it from Mint's repositories.\n", SHORT), [("SHORT", "mint")])
 check("full names clean",

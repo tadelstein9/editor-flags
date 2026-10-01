@@ -45,7 +45,7 @@ machine wrote: flag, then propose the repair beside it.
 Read each sentence once as its reader, who knows only the pages before
 it. At every word, ask the one question: **what would this reader have to
 stop and ask?** Then answer that question on the page, in the sentence,
-where the reader meets it. Seven kinds of stop came up, and each has its
+where the reader meets it. Eight kinds of stop came up, and each has its
 repair.
 
 | The stop | Specimen | The reader asked | The repair |
@@ -60,6 +60,14 @@ repair.
 | **A missing place** | *keep it in Git* | where? | *on the lab's Git server, paris-05* |
 | **A certainty word** | *what happens when a disk dies* | "if" | A thing that may not happen takes *if* |
 | **A short form** | *CKA*, *LFCS*, *Mint* | spell it out | *the Certified Kubernetes Administrator exam*, every time; *Linux Mint* |
+| **The book's own word** | *survive a dead disk*; *paris-05's road out*; *a narrow door*; *a customer's box* | use English | The standard term: *a failed disk*, *route*, *port* or *way in*, *computer* |
+
+A word the book coined, or a casual one it repeated until it felt like a
+term, is the eighth stop. The author's rule, 1 October 2026: "If the book
+has its own words like 'dead disk' instead of failed disk, we need to
+remove our own vernacular and use English." A comparison the page frames
+as a comparison, *picture paris-05 as an office building with a
+mailroom*, is a different thing; the author decides whether it stays.
 
 A paragraph can stop the reader as a whole. *Your lab holds four computers
 ... and the lab learned of it hours later, when the author sat down at
