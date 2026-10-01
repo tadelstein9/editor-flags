@@ -116,6 +116,15 @@ def tokens(sentence):
             continue
         if m.start() > 0 and sentence[m.start() - 1].isdigit():
             continue
+        # a word inside an identifier or a file name: sshd_config, timers.target
+        before = sentence[m.start() - 1] if m.start() > 0 else ""
+        after = sentence[end:end + 1]
+        if before == "_" or after == "_":
+            continue
+        if after == "." and sentence[end + 1:end + 2].isalnum():
+            continue
+        if before == "." and m.start() > 1 and sentence[m.start() - 2].isalnum():
+            continue
         # a word inside a path or a repository name: minio/minio, /srv/git
         if (end < len(sentence) and sentence[end] == "/") or (m.start() > 0 and sentence[m.start() - 1] == "/"):
             continue
