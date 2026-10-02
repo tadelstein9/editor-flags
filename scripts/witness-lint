@@ -1,0 +1,306 @@
+#!/usr/bin/env python3
+"""witness-lint — someone else's account told as the author's own memory.
+
+Tom, 2 October 2026, reading the first chapter of his Linux book. The
+draft said, in his voice:
+
+  "I watched one Internet service provider host two million users on a
+   single Linux server."
+
+He had not watched that. Donald K. Rosenberg, writing about Bynari for
+IBM's partner news, had put it this way:
+
+  "He had been impressed by seeing an ISP host 2 million users on a Linux
+   server."
+
+A machine drafting from the research folder read the reporter's summary
+and wrote it down as the author's eyewitness memory, with the reporter's
+number. The author remembered a rack of Linux servers. A first-person
+sentence promises the reader the author was there; when its details came
+from a third party, the page vouches for something the author never said.
+
+  witness-lint DRAFT --source FILE [--source FILE ...]
+  witness-lint DRAFT DRAFT ... --source FILE ...
+  witness-lint DRAFT --source FILE --own FILE   the author's own record
+
+An --own file is the author's own account: his articles, his notes, his
+words in an interview he gave. A figure found there is sourced, and a
+sentence that follows it is his to tell, so neither flags.
+
+FAMILIES IT FLAGS
+
+  WITNESS-FROM-SOURCE  a first-person sentence ("I saw", "we built", "my
+                       team") whose wording follows a sentence in a
+                       third-party source: a shared run of five words or
+                       more, or six shared content words. The author's
+                       memory may differ from the reporter's. Ask him, or
+                       attribute the account to its writer.
+
+  NUMBER-FROM-SOURCE   a first-person sentence carrying a figure the
+                       source printed ("2 million", "two million", "30%",
+                       "30 percent"). A figure in the author's voice must
+                       be one the author vouches for.
+
+  NUMBER-UNSOURCED     a first-person sentence carrying a figure that no
+                       source holds. Only the author can say where it came
+                       from. Years do not flag here.
+
+A SOURCE is a third party's text: an article, a press release, an
+interview someone else wrote up. Text files and markdown read as they
+are; PDFs go through pdftotext. An image cannot be read: transcribe it
+to a text file first and name the text file.
+
+Skips fenced code, inline code, headings, tables and block quotations,
+and leaves text inside double quotation marks alone: a quotation that
+names its speaker is already attributed. Reports. Never rewrites.
+Always exits 0.
+"""
+import os
+import re
+import subprocess
+import sys
+
+SKIP_LINE = re.compile(r"^\s*(?:#{1,6}\s|\||>|!\[|https?://|\s*[-*=]{3,}\s*$)")
+INLINE_CODE = re.compile(r"`[^`]*`")
+QUOTED = re.compile(r"\"[^\"]*\"|“[^”]*”")
+FIRST_PERSON = re.compile(r"\b(?:I|I'd|I'm|I've|we|We|my|My|our|Our|me|us)\b")
+SENT_SPLIT = re.compile(r"(?<=[.!?])\s+(?=[A-Z\"“(])")
+WORD = re.compile(r"[A-Za-z][A-Za-z'’-]*|\d[\d,.]*%?")
+
+STOP = set("""
+a about above after again against all also am an and any are as at be because
+been before being below between both but by can could did do does doing down
+during each few for from further had has have having he her here hers him his
+how if in into is it its itself just me more most my no nor not now of off on
+once only or other our out over own same she should so some such than that the
+their them then there these they this those through to too under until up very
+was we were what when where which while who whom why will with would you your
+i us one two three into onto upon been being said says
+""".split())
+
+SMALL = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6,
+         "seven": 7, "eight": 8, "nine": 9, "ten": 10, "eleven": 11,
+         "twelve": 12, "thirteen": 13, "fourteen": 14, "fifteen": 15,
+         "sixteen": 16, "seventeen": 17, "eighteen": 18, "nineteen": 19,
+         "twenty": 20, "thirty": 30, "forty": 40, "fifty": 50, "sixty": 60,
+         "seventy": 70, "eighty": 80, "ninety": 90}
+SCALE = {"hundred": 100, "thousand": 1_000, "million": 1_000_000, "billion": 1_000_000_000}
+YEAR = re.compile(r"^(?:1[89]|20)\d\d$")
+
+
+def figures(text):
+    """Return the set of figures a sentence states, as numbers.
+
+    "2 million", "two million" and "2,000,000" all come back 2000000;
+    "30%" and "30 percent" come back 30. Bare small words ("one ISP") and
+    years do not count: they are not figures a reporter supplies."""
+    raw_toks = [t.strip(".,;:") for t in re.findall(r"[A-Za-z][A-Za-z0-9'’/.:-]*[A-Za-z0-9]|[A-Za-z]|\d[\d,.]*%?|/\d+", text)]
+    raw_toks = [t for t in raw_toks if t]
+    toks = [t.lower() for t in raw_toks]
+    # "S/390": the number belongs to the name before the slash.
+    toks = ["" if t.startswith("/") else t for t in toks]
+    out, i = set(), 0
+    while i < len(toks):
+        t = toks[i]
+        val = None
+        if re.fullmatch(r"\d[\d,]*(?:\.\d+)?%?", t):
+            raw = t.rstrip("%").replace(",", "")
+            try:
+                val = float(raw)
+            except ValueError:
+                val = None
+            if val is not None and YEAR.match(raw) and "%" not in t:
+                i += 1
+                continue
+        elif t in SMALL and i + 1 < len(toks) and (toks[i + 1] in SCALE or toks[i + 1] in ("percent", "hundred")):
+            val = float(SMALL[t])
+        if val is None:
+            i += 1
+            continue
+        j = i + 1
+        while j < len(toks) and toks[j] in SCALE:
+            val *= SCALE[toks[j]]
+            j += 1
+        nxt = raw_toks[j] if j < len(raw_toks) else ""
+        # A count names what it counts: "300,000 words", "2 million users",
+        # "30%". A number inside a name does not: "Digital Equipment 486",
+        # "S/390 Multiprise 3000", "990 Model 1".
+        counts = (j > i + 1 or t.endswith("%") or nxt.lower() == "percent" or "," in t
+                  or (nxt.isalpha() and nxt.islower() and nxt not in STOP))
+        prev = raw_toks[i - 1] if i > 0 else ""
+        if prev[:1].isupper() and prev.lower() not in ("the", "a", "about", "nearly", "over", "more"):
+            counts = counts and (j > i + 1 or "," in t or t.endswith("%"))
+        if counts:
+            out.add(int(val) if val == int(val) else val)
+        i = j
+    return out
+
+
+def content(text):
+    return {w.lower().strip("'’") for w in WORD.findall(text)
+            if len(w) >= 3 and w.lower() not in STOP and not w[0].isdigit()}
+
+
+def words(text):
+    return [w.lower() for w in WORD.findall(text)]
+
+
+def shared_run(a, b, n=5):
+    """Longest run of words the two sentences share, if it is n or longer."""
+    best = []
+    grams = {}
+    for i in range(len(b) - n + 1):
+        grams.setdefault(tuple(b[i:i + n]), i)
+    for i in range(len(a) - n + 1):
+        j = grams.get(tuple(a[i:i + n]))
+        if j is None:
+            continue
+        k = n
+        while i + k < len(a) and j + k < len(b) and a[i + k] == b[j + k]:
+            k += 1
+        if k > len(best):
+            best = a[i:i + k]
+    return " ".join(best)
+
+
+def read_source(path):
+    if path.lower().endswith(".pdf"):
+        try:
+            return subprocess.run(["pdftotext", "-layout", path, "-"], check=True,
+                                  capture_output=True, text=True).stdout
+        except (OSError, subprocess.CalledProcessError) as exc:
+            print(f"witness-lint: cannot read {path}: {exc}", file=sys.stderr)
+            return ""
+    if path.lower().endswith((".jpg", ".jpeg", ".png", ".gif", ".tif", ".tiff", ".bmp")):
+        print(f"witness-lint: {path} is an image. Transcribe it to a text file and name that.",
+              file=sys.stderr)
+        return ""
+    try:
+        return open(path, encoding="utf-8", errors="replace").read()
+    except OSError as exc:
+        print(f"witness-lint: {exc}", file=sys.stderr)
+        return ""
+
+
+def source_sentences(paths):
+    out = []
+    for p in paths:
+        text = " ".join(read_source(p).split())
+        for s in SENT_SPLIT.split(text):
+            if len(s.split()) >= 3:
+                out.append((os.path.basename(p), s))
+    return out
+
+
+def draft_sentences(path):
+    try:
+        text = open(path, encoding="utf-8", errors="replace").read()
+    except OSError as exc:
+        print(f"witness-lint: {exc}", file=sys.stderr)
+        return
+    fenced = False
+    for n, line in enumerate(text.split("\n"), 1):
+        if line.lstrip().startswith("```"):
+            fenced = not fenced
+            continue
+        if fenced or not line.strip() or SKIP_LINE.match(line):
+            continue
+        clean = QUOTED.sub(" ", INLINE_CODE.sub(" ", line))
+        for s in SENT_SPLIT.split(clean.strip()):
+            if FIRST_PERSON.search(s):
+                yield n, s
+
+
+def scan(path, sources):
+    rows = []
+    src_figs = [(name, s, figures(s)) for name, s in sources]
+    for n, sent in draft_sentences(path):
+        a_words, a_content, a_figs = words(sent), content(sent), figures(sent)
+        best = None
+        for name, s, _ in src_figs:
+            run = shared_run(a_words, words(s))
+            common = a_content & content(s)
+            score = (len(run.split()) if run else 0, len(common))
+            if (run or len(common) >= 6) and (best is None or score > best[0]):
+                best = (score, name, s, run or ", ".join(sorted(common)))
+        if best:
+            rows.append((n, "WITNESS-FROM-SOURCE", best[3], sent, best[1], best[2]))
+        for f in sorted(a_figs, key=str):
+            hit = next(((name, s) for name, s, figs in src_figs if f in figs), None)
+            if hit:
+                rows.append((n, "NUMBER-FROM-SOURCE", f"{f:,}" if isinstance(f, int) else str(f),
+                             sent, hit[0], hit[1]))
+            elif sources:
+                rows.append((n, "NUMBER-UNSOURCED", f"{f:,}" if isinstance(f, int) else str(f),
+                             sent, "", ""))
+    return rows
+
+
+def _num(text):
+    try:
+        v = float(text.replace(",", ""))
+        return int(v) if v == int(v) else v
+    except ValueError:
+        return None
+
+
+ADVICE = {
+    "WITNESS-FROM-SOURCE": "ask the author what he saw, or name the writer: \"Rosenberg wrote that ...\"",
+    "NUMBER-FROM-SOURCE": "the figure is the source's; keep it only if the author vouches for it, or attribute it",
+    "NUMBER-UNSOURCED": "no source holds this figure; the author says where it came from",
+}
+
+
+def clip(s, n=110):
+    s = " ".join(s.split())
+    return s if len(s) <= n else s[:n - 1] + "…"
+
+
+def main(args):
+    if not args or "-h" in args or "--help" in args:
+        print(__doc__.strip())
+        return 0
+    drafts, sources, own, i = [], [], [], 0
+    while i < len(args):
+        if args[i] == "--source" and i + 1 < len(args):
+            sources.append(os.path.expanduser(args[i + 1]))
+            i += 2
+        elif args[i] == "--own" and i + 1 < len(args):
+            own.append(os.path.expanduser(args[i + 1]))
+            i += 2
+        else:
+            drafts.append(args[i])
+            i += 1
+    if not sources:
+        print("witness-lint: name at least one --source, a third party's text. "
+              "Without one, only NUMBER-UNSOURCED could run, and every figure would flag.")
+        return 0
+    sents = source_sentences(sources)
+    own_figs = set()
+    for _, s_ in source_sentences(own):
+        own_figs |= figures(s_)
+    total = 0
+    for path in drafts:
+        rows = [r for r in scan(path, sents)
+                if not (r[1] == "NUMBER-UNSOURCED" and _num(r[2]) in own_figs)]
+        total += len(rows)
+        if not rows:
+            continue
+        print(f"\n== witness-lint: {path} ==  ({len(rows)} to read)")
+        for ln, kind, what, sent, name, src in rows:
+            print(f"    {ln:>4}: [{kind}] “{what}”")
+            print(f"          draft:  {clip(sent)}")
+            if src:
+                print(f"          {name}: {clip(src)}")
+    if total:
+        print("\n  (report, never a rewrite. Ask of each flag: was the author there?")
+        for k, v in ADVICE.items():
+            print(f"   {k:<20} {v}")
+        print("   The author's memory decides. A source that disagrees stays in the research file.)")
+    else:
+        print("witness-lint: no first-person sentence follows the sources in " + ", ".join(drafts))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
