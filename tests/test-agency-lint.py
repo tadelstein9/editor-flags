@@ -88,6 +88,7 @@ check("there is", "There is one rule in the list, and there are two addresses.",
 check("a quotation stays", 'The page quoted the draft: "SSH decides who gets in."', None)
 check("inline code stays", "Run `the server decides` as a test string.", None)
 
+check("begin to act", "Physicians and master-surgeons had begun to flee.", None)
 check("founded by a person", "The company was founded by Tom in 1998.", None)
 check("a company acts on something", "In 2001 Bynari sponsored a contest for papers.", None)
 check("the founder in the subject seat", "I started Bynari as a consulting business.", None)

@@ -251,7 +251,8 @@ def hidden_founder(tok, subj, lemma):
     if lemma not in ORIGIN_VERBS:
         return False
     # "Bynari started a contest": the company acts on something. That stays.
-    return not any(c.dep_ in ("dobj", "obj") for c in tok.children)
+    # "Physicians had begun to flee": begin + another verb is an act, not an origin.
+    return not any(c.dep_ in ("dobj", "obj", "xcomp") for c in tok.children)
 
 
 def subject_of(verb):
