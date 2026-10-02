@@ -4,18 +4,18 @@ description: >
   Flag technical prose that gives a thing the job of a person or the body
   of a traveler: a protocol that decides, a manual that promises, an
   endpoint that serves as, a computer that arrives, a host that knocks, a
-  there with no place behind it. Also carries four faults no program can
+  there with no place behind it, a company that starts itself. Also carries four faults no program can
   see: one verb standing in for a process, a register jump inside a
   sentence, a fact that turns into an instruction without a transition,
   and a state that seems to contradict itself. Use on documentation,
   runbooks, technical chapters and any machine draft about systems, when a
   reader says who is the actor, agency, SSH decides, serves as, arrives,
-  gets in, or when the agency-lint program reports. Reports on the
+  gets in, who started it, or when the agency-lint program reports. Reports on the
   author's prose. Proposes repairs only on a machine draft.
 license: Apache-2.0
 metadata:
   author: Tom Adelstein
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 # Agency in technical prose
@@ -27,9 +27,11 @@ on it. *SSH decides who gets in* has to become *the administrator writes
 settings, and sshd, the server program, enforces them when a connection
 reaches port 22.* The page should have said that.
 
-The eight families below come from one afternoon, 26 September 2026: a
-machine drafted a chapter about hardening a Linux laptop, and the author
-sent back each sentence here. Every specimen is real.
+Eight of the nine families below come from one afternoon, 26 September
+2026: a machine drafted a chapter about hardening a Linux laptop, and the
+author sent back each sentence here. The ninth, HIDDEN-FOUNDER, came on 2
+October 2026, from the author reading his own first chapter. Every
+specimen is real.
 
 ## When
 
@@ -37,7 +39,7 @@ sent back each sentence here. Every specimen is real.
 - After the `agency-lint` program reports, to judge each flag
 - On a machine draft, before the voice pass hands it on
 - When the reader says *who is the actor*, *agency*, *serves as*,
-  *decides*, *arrives*, *gets in*, or *there*
+  *decides*, *arrives*, *gets in*, *there*, or *who started it*
 
 On the author's own file: flag and stop. The author judges. On a draft a
 machine wrote: flag, then propose the repair beside it.
@@ -51,7 +53,8 @@ agency-lint --rate FILE
 
 It reads the grammar with spaCy and flags a subject only when it names a
 computer, a program, a protocol, a host, a setting or a document. A person
-may decide, and a named person, a company or a government may want. When
+may decide, and a named person, a company or a government may want. A
+company does not start itself, though: family 5 flags that. When
 the program cannot tell, it stays quiet: a false alarm on the author's own
 prose teaches the author to stop reading the report.
 
@@ -113,11 +116,29 @@ leaves the reader to guess which one.
 
 > ...once a client opens a connection to port 22 on paris-04.
 
+### 5. HIDDEN-FOUNDER — a company that starts itself
+
+> Bynari started as a consulting business.
+
+The author's note: *"I am fuzzy about Bynari starting something. I
+started it."* A company, product or project that *starts*, *begins*,
+*grows*, *launches*, *emerges*, *evolves* or *becomes* something on its
+own, or that *was founded* with no one named, hides the person who did
+the work. Put that person in the subject seat.
+
+> I started Bynari as a consulting business.
+
+The same question goes to a status someone else gave. *Bynari became
+IBM's first Linux Influencer Partner* hides IBM: *IBM named Bynari its
+first Linux Influencer Partner.* A company that acts on something, *Bynari
+sponsored a contest*, stays. The program flags; the author judges, because
+only the author knows who started it.
+
 ## What only a reader finds
 
 No parser sees these. Read for them after the program runs.
 
-### 5. One verb for a whole process
+### 6. One verb for a whole process
 
 > SSH decides who gets in once a computer arrives there.
 
@@ -132,7 +153,7 @@ them:
 > words of the sshd manual, "the server and the client enter an
 > authentication dialog."
 
-### 6. Two registers in one sentence
+### 7. Two registers in one sentence
 
 > UFW, the firewall that ships with Mint, turns your rule into kernel
 > packet filters.
@@ -145,7 +166,7 @@ the sentence.
 > and UFW translates each rule into netfilter rules, the packet filters the
 > Linux kernel enforces.
 
-### 7. A fact that turns into an instruction without a transition
+### 8. A fact that turns into an instruction without a transition
 
 > paris-04 offers the network one service, SSH, and only one computer needs
 > it. You write that sentence as a firewall rule.
@@ -156,7 +177,7 @@ loses the frame. Say the turn in words.
 > ...and one computer needs it: the command center, paris-06. In this
 > section you turn that fact into a firewall rule.
 
-### 8. A state that seems to contradict itself
+### 9. A state that seems to contradict itself
 
 > A switched-off firewall can carry saved rules, and the moment you enable
 > it, UFW loads every one of them.

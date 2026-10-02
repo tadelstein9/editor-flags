@@ -64,6 +64,11 @@ check("the manual promises", "The ufw manual promises that an active firewall ke
 check("this book walks", "The signed spine: this book walks the work those seats require.", "TRAVEL")
 check("a login gets in", "A new key login from paris-06 gets in with the undo showing.", "TRAVEL")
 
+check("Bynari started as", "Bynari started as a consulting business.", "HIDDEN-FOUNDER")
+check("Bynari became a partner", "Bynari became IBM's first Linux Influencer Partner in April 2001.", "HIDDEN-FOUNDER")
+check("Bynari Insight grew from it", "Bynari Insight grew from it: tools that run on Linux.", "HIDDEN-FOUNDER")
+check("was founded, no one named", "The company was founded in 1998.", "HIDDEN-FOUNDER")
+
 print("\nthe author's own prose and ordinary English stay clean")
 check("a person held an office", "William B. Miller served as the first Secretary.", None)
 check("a person's role", "Basically, I function as the CTO and Mr. Hani Jabsheh is the CEO.", None)
@@ -82,6 +87,10 @@ check("a program refuses", "sshd refused the password. UFW dropped paris-07.", N
 check("there is", "There is one rule in the list, and there are two addresses.", None)
 check("a quotation stays", 'The page quoted the draft: "SSH decides who gets in."', None)
 check("inline code stays", "Run `the server decides` as a test string.", None)
+
+check("founded by a person", "The company was founded by Tom in 1998.", None)
+check("a company acts on something", "In 2001 Bynari sponsored a contest for papers.", None)
+check("the founder in the subject seat", "I started Bynari as a consulting business.", None)
 
 print(f"\n{pass_n} passed, {fail_n} failed")
 sys.exit(1 if fail_n else 0)

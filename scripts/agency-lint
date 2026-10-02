@@ -42,6 +42,14 @@ FAMILIES IT FLAGS
                  network. "The laptop arrived" is a parcel and stays. A connection reaches a
                  port. sshd accepts a key. UFW admits the connection.
 
+  HIDDEN-FOUNDER a company, product or project that starts, begins, grows,
+                 launches, emerges, evolves or becomes something on its
+                 own, or "was founded" with no one named. Tom, 2 October
+                 2026, on "Bynari started as a consulting business": "I
+                 am fuzzy about Bynari starting something. I started it."
+                 A person starts a company and grows a product. A company
+                 that starts a contest acts, and that does not flag.
+
   LOOSE-THERE    "there" closing a sentence, pointing at a place the
                  sentence never named ("once a computer arrives there").
                  Anchor it to a host, a port, a file or a service.
@@ -74,6 +82,19 @@ DISGUISED_BE = re.compile(
     re.I)
 
 # Always a picture when a thing does them.
+# A company, product or project that starts or grows on its own hides the
+# person who started or grew it.
+ORIGIN_VERBS = {"start", "begin", "grow", "launch", "emerge", "evolve",
+                "originate", "become"}
+ORIGIN_PASSIVE = {"found", "start", "launch", "create", "establish", "build",
+                  "form", "incorporate", "bear", "begin"}
+# Names the tagger mistakes for people ("Bynari" comes back PERSON).
+KNOWN_ORGS = {"bynari", "insight", "insightserver", "insightconnector",
+              "leopard", "composer", "colophon", "own-your-listings"}
+ORG_NOUNS = {"company", "business", "firm", "project", "startup", "venture",
+             "product", "website", "site", "toolkit", "consultancy",
+             "practice", "partnership", "corporation", "enterprise"}
+
 TRAVEL_VERBS = {"knock", "travel", "walk", "wander", "sneak", "journey"}
 # Ordinary English for a parcel or a market ("the laptop arrived"). A trip
 # only when the sentence talks about a network.
@@ -209,6 +230,30 @@ def loose_there(tok):
     return tok.i == 0 or tok.doc[tok.i - 1].lower_ not in ("out", "over", "in", "up", "down", "here")
 
 
+def org_like(tok):
+    """A company, product or project named in the subject seat."""
+    low, lemma = tok.lower_, tok.lemma_.lower()
+    if lemma in ORG_NOUNS or low in KNOWN_ORGS:
+        return True
+    if low in TECH_NAMES or HOSTNAME.match(tok.text) or tok.pos_ == "PRON":
+        return False
+    if tok.ent_type_ in ("PERSON", "GPE", "NORP", "DATE", "CARDINAL"):
+        return False
+    return tok.ent_type_ in ("ORG", "PRODUCT", "WORK_OF_ART") or tok.pos_ == "PROPN"
+
+
+def hidden_founder(tok, subj, lemma):
+    """ "Bynari started as", "Insight grew from it", "was founded in 1998"."""
+    if not org_like(subj):
+        return False
+    if subj.dep_ == "nsubjpass":
+        return lemma in ORIGIN_PASSIVE and not any(c.dep_ == "agent" for c in tok.children)
+    if lemma not in ORIGIN_VERBS:
+        return False
+    # "Bynari started a contest": the company acts on something. That stays.
+    return not any(c.dep_ in ("dobj", "obj") for c in tok.children)
+
+
 def subject_of(verb):
     for c in verb.children:
         if c.dep_ in ("nsubj", "nsubjpass"):
@@ -248,6 +293,9 @@ def scan(path):
             if subj is None:
                 continue
             kind = kind_of(subj)
+            if hidden_founder(tok, subj, lemma):
+                rows.append((n, "HIDDEN-FOUNDER", span_of(subj, tok), raw))
+                continue
             if (lemma in ("serve", "act", "function") and kind != "person"
                     and any(c.dep_ == "prep" and c.lower_ == "as" for c in tok.children)):
                 rows.append((n, "DISGUISED-BE", span_of(subj, tok, " as"), raw))
@@ -277,6 +325,7 @@ ADVICE = {
     "DISGUISED-BE": "name who acts and what they do with it",
     "THING-MINDS": "a person decides; the program enforces; the document states",
     "TRAVEL": "a connection reaches a port; sshd accepts a key; UFW admits the connection",
+    "HIDDEN-FOUNDER": "who started it, who grew it, who named it? put that person first",
     "LOOSE-THERE": "name the host, port, file or service",
 }
 
