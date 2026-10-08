@@ -69,9 +69,16 @@ check("Bynari became a partner", "Bynari became IBM's first Linux Influencer Par
 check("Bynari Insight grew from it", "Bynari Insight grew from it: tools that run on Linux.", "HIDDEN-FOUNDER")
 check("was founded, no one named", "The company was founded in 1998.", "HIDDEN-FOUNDER")
 
+check("a textbook tells", "A textbook can tell you what Git does.", "THING-SPEAKS")
+check("the guide says", "Ubuntu's guide says a domain controller needs a fixed address.", "THING-SPEAKS")
+check("the exam asks", "The Red Hat Certified Engineer exam asks you to manage packages.", "THING-SPEAKS")
+check("section showed", "As section 4.5 showed, the password stays in a file.", "THING-SPEAKS")
+
 print("\nthe author's own prose and ordinary English stay clean")
 check("a person held an office", "William B. Miller served as the first Secretary.", None)
 check("a person's role", "Basically, I function as the CTO and Mr. Hani Jabsheh is the CEO.", None)
+check("a program does its job", "UFW admits the connection, and sshd refuses the password.", None)
+check("the developers say", "The Samba developers warn in their notes that the clock must agree.", None)
 check("a parcel arrived", "Once the laptop arrived, I began searching around on Google.", None)
 check("a market arrival", "Linux indeed has arrived on the desktop and is ready for use.", None)
 check("plays a role in", "Unfortunately, Linux plays a minor role in this project.", None)

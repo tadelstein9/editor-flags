@@ -132,6 +132,33 @@ THINGS = {
     "line", "list", "log", "entry", "value", "flag",
     "manual", "document", "section", "chapter", "page", "book", "paragraph",
     "sentence", "guide", "readme", "note", "notes", "article", "report",
+    # 10/07: "A textbook can tell you what Git does. No it cannot."
+    "textbook", "survey", "study", "exam", "research", "output", "error",
+    "figure", "table", "diagram", "documentation", "runbook", "record",
+    "data", "result", "test", "question", "answer", "warning", "screen",
+    "prompt", "transcript", "draft", "number", "numbers", "evidence",
+}
+# Tom, 7 October 2026: "A textbook is inanimate. Inanimate nouns cannot
+# act." A thing in the subject seat of a verb a person speaks with.
+TEXTS = {
+    "manual", "document", "section", "chapter", "page", "book", "paragraph",
+    "sentence", "guide", "readme", "note", "notes", "article", "report",
+    "textbook", "survey", "study", "exam", "research", "figure", "table",
+    "diagram", "documentation", "runbook", "draft", "evidence", "data",
+    "transcript", "certification", "objective", "objectives", "syllabus",
+    "course", "class", "lesson", "tutorial", "website", "site", "blog",
+    "post", "paper", "letter", "email", "headline", "story", "history",
+    "industry", "market", "law", "policy", "rule", "standard", "number",
+    "numbers", "statistic", "statistics", "list", "question", "quiz",
+    "wiki", "faq", "changelog", "log", "readme", "documentation", "docs",
+}
+SPEAK_VERBS = {
+    "tell", "say", "show", "explain", "describe", "warn", "ask", "answer",
+    "recommend", "suggest", "state", "claim", "argue", "mention", "remind",
+    "insist", "reveal", "prove", "confirm", "advise", "instruct",
+    "urge", "promise", "complain", "announce", "report", "list", "cover",
+    "point", "spell", "teach", "find", "call", "name", "lie",
+    "forbid", "give", "add", "record", "define", "set", "require", "advise",
 }
 TECH_NAMES = {
     "ssh", "sshd", "ufw", "linux", "mint", "ubuntu", "debian", "systemd",
@@ -313,6 +340,9 @@ def scan(path):
                 pass  # handled below, where an unknown subject also counts
             elif lemma in MIND_VERBS and tok.tag_ != "VBN":
                 rows.append((n, "THING-MINDS", span_of(subj, tok), raw))
+            elif (lemma in SPEAK_VERBS and tok.tag_ != "VBN"
+                  and (subj.lemma_.lower() in TEXTS or subj.lower_ in TEXTS)):
+                rows.append((n, "THING-SPEAKS", span_of(subj, tok), raw))
             elif lemma in TRAVEL_VERBS or (lemma in TRAVEL_IF_NETWORK and NETWORK.search(tok.sent.text)):
                 rows.append((n, "TRAVEL", span_of(subj, tok), raw))
             elif lemma in ("get", "let") and any(
@@ -325,6 +355,7 @@ def scan(path):
 ADVICE = {
     "DISGUISED-BE": "name who acts and what they do with it",
     "THING-MINDS": "a person decides; the program enforces; the document states",
+    "THING-SPEAKS": "who wrote it, who said it? name that person, or put the reader in the seat",
     "TRAVEL": "a connection reaches a port; sshd accepts a key; UFW admits the connection",
     "HIDDEN-FOUNDER": "who started it, who grew it, who named it? put that person first",
     "LOOSE-THERE": "name the host, port, file or service",
