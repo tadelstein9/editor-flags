@@ -22,7 +22,7 @@ only a person knows which idea leads.
 
   stack-lint FILE [FILE ...]        report
   stack-lint --min N FILE           ideas that make a stack (default 3)
-  stack-lint --words N FILE         shortest sentence to check (default 22)
+  stack-lint --words N FILE         shortest sentence to check (default 15)
 
   A sentence of 30 words or more flags with one idea fewer.
 
@@ -130,7 +130,7 @@ def scan(path, nlp, least, shortest, long_at=30):
 
 
 def main(argv):
-    least, shortest, files = 3, 22, []
+    least, shortest, files = 3, 15, []
     it = iter(argv)
     for a in it:
         if a == "--min":
