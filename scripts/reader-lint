@@ -59,6 +59,8 @@ VAGUE = [
     (r"\bstuff\b", "what stuff? Name it"),
     (r"\bdeal with\b|\bdeals with\b", "deal how? Name the act"),
     (r"\bhandles?\b", "handles how? Name what it does"),
+    # Tom, 8 Oct 2026: "what does weigh have to do with software?"
+    (r"\bweigh(s|ed|ing)?\b", "weigh on what scale? Say decided, compared, or give the measured amount"),
     # Tom, 7 Oct 2026: "Met is a word that implies the involvement of a second person."
     (r"\b(you|we|i|they|reader|lab) (have |had )?(met|meet|meets)\b|\b(met|meet) in (section|chapter)\b|\b(met|meets|meet) (it|them|that|the)\b(?! (requirement|need|standard|demand|deadline))",
      "met whom? A person meets a person. Say read, saw, set up, used, learned"),
