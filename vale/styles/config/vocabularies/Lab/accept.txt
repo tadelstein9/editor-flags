@@ -128,3 +128,4 @@
 (?i)wim
 (?i)winbind
 (?i)yuriev
+(?i)o'reilly
