@@ -163,6 +163,7 @@ PERSON_VERBS = {
     "sit", "stand", "hide", "survive", "breathe", "sleep", "wake", "eat",
     "hunger", "starve", "rest", "relax", "complain", "cry", "laugh",
     "smile", "fight", "battle", "wrestle", "dream", "behave", "learn",
+    "ride", "hear", "wait", "hand",
 }
 SPEAK_VERBS = {
     "tell", "say", "show", "explain", "describe", "warn", "ask", "answer",
