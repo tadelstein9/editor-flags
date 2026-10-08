@@ -1,0 +1,12 @@
+#!/bin/sh
+# style-lint — published rule bases, not the house's: the Google developer
+# documentation style guide, proselint and write-good, run through Vale.
+# Tom, 7 Oct 2026: "I want a rule base added to whatever lint you need that
+# normalizes language. It doesn't have to be mine or yours, it just needs
+# to work." Report only, never a rewrite. Config and the book's word list:
+# editor-flags/vale/.vale.ini.
+#
+#   style-lint FILE [FILE ...]
+CFG="$HOME/Skills/editor-flags/vale/.vale.ini"
+[ -d "$HOME/Skills/editor-flags/vale/styles/Google" ] || (cd "$HOME/Skills/editor-flags/vale" && vale sync >/dev/null)
+vale --config "$CFG" --no-wrap --output line "$@" | sed "s|^$PWD/||"
