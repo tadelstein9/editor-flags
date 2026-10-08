@@ -69,6 +69,9 @@ check("Bynari became a partner", "Bynari became IBM's first Linux Influencer Par
 check("Bynari Insight grew from it", "Bynari Insight grew from it: tools that run on Linux.", "HIDDEN-FOUNDER")
 check("was founded, no one named", "The company was founded in 1998.", "HIDDEN-FOUNDER")
 
+check("the key you met", "The key met the server in Chapter 2.", "THING-LIVES")
+check("the account lives", "The git account lives at /srv/git.", "THING-LIVES")
+check("the laptops ran into it", "Hold on to that sentence; the laptops ran into it.", "THING-LIVES")
 check("a textbook tells", "A textbook can tell you what Git does.", "THING-SPEAKS")
 check("the guide says", "Ubuntu's guide says a domain controller needs a fixed address.", "THING-SPEAKS")
 check("the exam asks", "The Red Hat Certified Engineer exam asks you to manage packages.", "THING-SPEAKS")
