@@ -3,10 +3,21 @@
 # documentation style guide, proselint and write-good, run through Vale.
 # Tom, 7 Oct 2026: "I want a rule base added to whatever lint you need that
 # normalizes language. It doesn't have to be mine or yours, it just needs
-# to work." Report only, never a rewrite. Config and the book's word list:
-# editor-flags/vale/.vale.ini.
+# to work." Report only, never a rewrite.
 #
 #   style-lint FILE [FILE ...]
-CFG="$HOME/Skills/editor-flags/vale/.vale.ini"
-[ -d "$HOME/Skills/editor-flags/vale/styles/Google" ] || (cd "$HOME/Skills/editor-flags/vale" && vale sync >/dev/null)
-vale --config "$CFG" --no-wrap --output line "$@" | sed "s|^$PWD/||"
+#
+# The rules live in style-rules/ beside this program (on the house seat,
+# editor-flags/vale). The first run downloads the published packs.
+HERE=$(dirname "$(readlink -f "$0")")
+for d in "$HERE/style-rules" "$HERE/../vale" "$HOME/Skills/editor-flags/vale"; do
+  [ -f "$d/.vale.ini" ] && { RULES=$(cd "$d" && pwd); break; }
+done
+[ -n "${RULES:-}" ] || { echo "style-lint DID NOT RUN — no style-rules/.vale.ini beside it"; exit 0; }
+command -v vale >/dev/null 2>&1 || { echo "style-lint DID NOT RUN — Vale is not installed (https://vale.sh)"; exit 0; }
+[ -d "$RULES/styles/Google" ] || (cd "$RULES" && vale sync >/dev/null 2>&1)
+out=$(vale --config "$RULES/.vale.ini" --no-wrap --output line "$@" | sed "s|^$PWD/||")
+n=$(printf '%s' "$out" | grep -c .)
+echo "== style-lint: $* ==  ($n to read)"
+[ -n "$out" ] && printf '%s\n' "$out"
+exit 0
