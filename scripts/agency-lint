@@ -162,12 +162,19 @@ TEXTS = {
 OFFICES = {
     "office", "department", "bureau", "agency", "building", "lab", "labs", "room",
 }
-PRODUCTS = {"windows", "microsoft", "google", "amazon", "oracle", "apple", "ibm"}
+PRODUCTS = {"windows", "microsoft", "google", "amazon", "oracle", "apple", "ibm",
+            "broadcom", "canonical", "intel", "nvidia", "dell", "fujitsu", "hitachi",
+            "novell", "nec", "soundcloud", "deuxfleurs", "open-xchange", "ollama", "cncf",
+            "foundation", "company", "vendor", "firm", "ubuntu", "debian", "fedora"}
 ACT_VERBS = {
     "mail", "refuse", "reject", "choose", "pay", "buy", "sell", "sign",
     "approve", "bill", "deliver", "hire", "fire", "put", "leave", "drop",
     "exclude", "omit", "abandon", "retire", "welcome", "hand", "print",
     "write", "build", "move", "install", "teach",
+    # a company is a word; its people announce, donate, publish, charge and decide
+    "announce", "donate", "publish", "agree", "acquire", "charge", "promise",
+    "end", "decide", "plan", "offer", "release", "ship", "support", "accept", "graduate",
+    "start", "launch", "stop", "block", "want",
 }
 # The parser misreads "computers Windows 11 refuses" (it tags "refuses" a
 # noun), so a plain pattern backs it up: a product or company name followed
