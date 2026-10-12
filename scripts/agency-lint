@@ -155,6 +155,37 @@ TEXTS = {
     "numbers", "statistic", "statistics", "list", "question", "quiz",
     "wiki", "faq", "changelog", "log", "readme", "documentation", "docs",
 }
+# Tom, 12 October 2026: "A county tax office doesn't mail. People mail." and
+# "Windows 11 refuses? ... the engineers at Microsoft." A place, an office, a
+# product, a text or a command in the subject seat of an act only a person
+# performs: mailing, refusing, leaving out, choosing, paying, signing.
+OFFICES = {
+    "office", "department", "bureau", "agency", "building", "lab", "labs", "room",
+}
+PRODUCTS = {"windows", "microsoft", "google", "amazon", "oracle", "apple", "ibm"}
+ACT_VERBS = {
+    "mail", "refuse", "reject", "choose", "pay", "buy", "sell", "sign",
+    "approve", "bill", "deliver", "hire", "fire", "put", "leave", "drop",
+    "exclude", "omit", "abandon", "retire", "welcome", "hand", "print",
+    "write", "build", "move", "install", "teach",
+}
+# The parser misreads "computers Windows 11 refuses" (it tags "refuses" a
+# noun), so a plain pattern backs it up: a product or company name followed
+# within three words by an act only its people perform.
+PRODUCT_ACT = re.compile(
+    r"\b(?:Windows(?:\s+\d+)?|Microsoft|Google|Amazon|Oracle|Apple|IBM)\s+"
+    r"(?:\w+\s+){0,2}?(?:refuses|refused|rejects|rejected|leaves\s+out|left\s+out|"
+    r"leaves|left|chooses|chose|decides|decided)\b")
+# Acts no program performs, even in technical prose. A firewall refuses a
+# connection and a timer moves a file; neither mails, pays or signs.
+SOFTWARE_NEVER = {"mail", "pay", "buy", "sell", "approve", "bill", "hire",
+                  "fire", "welcome", "choose", "teach", "abandon"}
+# A rule, a policy or a firewall refuses and leaves out by design.
+RULES = {"policy", "rule", "rules", "firewall", "filter", "expression"}
+# "Every command in the book ran in a four-computer lab": a past run with
+# nobody named. Present tense ("the timer runs the script") stays clean.
+RUN_SUBJECTS = {"command", "commands", "test", "tests", "drill", "drills", "run", "runs", "playbook", "script"}
+
 # Tom, 7 October 2026: "If a word appropriate to people animates inanimate
 # things, that's not appropriate." Verbs of a body, a life or a social act.
 PERSON_VERBS = {
@@ -324,6 +355,9 @@ def scan(path):
                 rows.append((n, "DISGUISED-BE", m.group(0), raw))
             continue
         doc = nlp(clean)
+        flagged_lines = set()
+        for m in PRODUCT_ACT.finditer(clean):
+            rows.append((n, "THING-ACTS", m.group(0), raw)); flagged_lines.add(n)
         for tok in doc:
             if tok.pos_ not in ("VERB", "AUX"):
                 if loose_there(tok):
@@ -345,6 +379,26 @@ def scan(path):
                     c.lower_ in ("role", "part") and c.i + 1 < len(doc)
                     and doc[c.i + 1].lower_ == "of" for c in tok.subtree):
                 rows.append((n, "DISGUISED-BE", span_of(subj, tok, " the role of"), raw))
+                continue
+            slow, slem = subj.lower_, subj.lemma_.lower()
+            # "Windows 11 refuses": the head word is "11"; read its compounds too.
+            names = {slow, slem} | {c.lower_ for c in subj.children if c.dep_ == "compound"}
+            product = bool(names & PRODUCTS)
+            actor_thing = (kind == "thing" or slow in OFFICES or slem in OFFICES
+                           or product or slem in TEXTS)
+            people_near = any(c.lower_ in PEOPLE or c.lemma_.lower() in PEOPLE
+                              for c in subj.subtree if c.i != subj.i and c.dep_ in ("poss", "compound"))
+            if slem in RULES and lemma in ("refuse", "reject", "leave", "exclude", "drop"):
+                actor_thing = False
+            if (actor_thing and not people_near and lemma in ACT_VERBS
+                    and tok.tag_ != "VBN"
+                    and not (kind == "thing" and not product and slem not in TEXTS
+                             and slem not in OFFICES and lemma not in SOFTWARE_NEVER)):
+                if n not in flagged_lines:
+                    rows.append((n, "THING-ACTS", span_of(subj, tok), raw))
+                continue
+            if lemma == "run" and tok.tag_ == "VBD" and (slem in RUN_SUBJECTS or slow in RUN_SUBJECTS):
+                rows.append((n, "THING-ACTS", span_of(subj, tok), raw))
                 continue
             if kind != "thing":
                 continue
@@ -377,6 +431,7 @@ ADVICE = {
     "TRAVEL": "a connection reaches a port; sshd accepts a key; UFW admits the connection",
     "HIDDEN-FOUNDER": "who started it, who grew it, who named it? put that person first",
     "LOOSE-THERE": "name the host, port, file or service",
+    "THING-ACTS": "people mail, refuse, choose and run; name the clerk, the engineer, the reader",
 }
 
 
