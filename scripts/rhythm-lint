@@ -21,8 +21,9 @@ RULES
                support it (McCrimmon, Writing with a Purpose, 1963: the
                thesis is to the paper "what the topic sentence or topic idea
                is to the paragraph"). The program sees the sign of a detail:
-               a first sentence carrying a figure, a model number or a date,
-               in a paragraph of two or more sentences. A person decides
+               a first sentence carrying a figure, a model number or a date
+               (three digits or more, or letters mixed with digits), in a
+               paragraph of two or more sentences. List items do not count. A person decides
                whether that sentence states the idea. (Tom, 13 Oct 2026)
 
 Reads grammar with spaCy from ~/pipeline-venv. Skips fenced code, inline
@@ -61,6 +62,16 @@ ADVICE = {
 }
 
 DIGITS = re.compile(r"\d")
+LIST_ITEM = re.compile(r"^\s*(?:\d+[.)]|[-*+])\s")
+
+
+def detail(tok):
+    """A figure, a model number or a date: three digits or more, or letters mixed
+    with digits (i5, 7200U). A short version number ("Windows 11", "Chapter 2")
+    names a thing and does not count."""
+    s = tok.text
+    digits = sum(c.isdigit() for c in s)
+    return digits >= 3 or (digits and any(c.isalpha() for c in s))
 
 
 def no_topic(sents):
@@ -68,7 +79,7 @@ def no_topic(sents):
     if len(sents) < 2:
         return []
     first = sents[0]
-    shown = [t.text for t in first if DIGITS.search(t.text)]
+    shown = [t.text for t in first if detail(t)]
     if shown:
         return [("NO-TOPIC", "first sentence: " + ", ".join(shown[:3]), "state the idea first")]
     return []
@@ -151,7 +162,7 @@ def scan(text):
     nlp = _parser()
     for n, line in prose(text):
         sents = [s for s in nlp(line).sents if s.text.strip()]
-        for rule in PARAGRAPH_RULES:
+        for rule in ([] if LIST_ITEM.match(line) else PARAGRAPH_RULES):
             for code, span, fix in rule(sents):
                 rows.append((n, code, span, fix, sents[0].text.strip()))
         for sent in sents:
