@@ -1,0 +1,215 @@
+#!/usr/bin/env python3
+"""rhythm-lint — a finished page read for flow, one sentence at a time.
+
+Tom, 13 October 2026, reading the opening of Hands-On Linux Infrastructure,
+Chapter 1, sentence by sentence. Each rule below comes from his ear on a
+real sentence, and the sentence that taught it sits beside the rule.
+
+  rhythm-lint FILE [FILE ...]        report
+  rhythm-lint --profile FILE         each sentence's length, opening and clauses, then report
+  rhythm-lint --test                 run the cases in tests/rhythm/ and say pass or fail
+
+RULES
+
+  WRONG-PREP   a person and a machine joined by the wrong preposition.
+               "The clerk works at a Dell Inspiron 5567." A person works at
+               a desk or a job and works on a computer. (Tom, 13 Oct 2026)
+
+  NO-TOPIC     a paragraph that opens on a detail instead of its topic.
+               "The rhythm needs a topic." In expository form the first
+               sentence states the paragraph's idea and the next sentences
+               support it (McCrimmon, Writing with a Purpose, 1963: the
+               thesis is to the paper "what the topic sentence or topic idea
+               is to the paragraph"). The program sees the sign of a detail:
+               a first sentence carrying a figure, a model number or a date,
+               in a paragraph of two or more sentences. A person decides
+               whether that sentence states the idea. (Tom, 13 Oct 2026)
+
+Reads grammar with spaCy from ~/pipeline-venv. Skips fenced code, inline
+code, headings, tables and block quotations. Reports. Never rewrites. A
+person decides on every flag. Always exits 0.
+"""
+import os
+import re
+import sys
+
+HERE = os.path.dirname(os.path.realpath(__file__))
+TESTS = os.path.join(os.path.dirname(HERE), "tests", "rhythm")
+VENV_SITE = os.path.expanduser("~/pipeline-venv/lib/python3.12/site-packages")
+_NLP = None
+
+SKIP_LINE = re.compile(r"^\s*(?:#{1,6}\s|\||>|!\[|https?://|\s*[-*=]{3,}\s*$)")
+INLINE_CODE = re.compile(r"`[^`]*`")
+
+# Machines a person works on, by common noun and by maker or model name.
+MACHINE_NOUNS = {
+    "computer", "laptop", "desktop", "pc", "server", "workstation", "machine",
+    "notebook", "chromebook", "tablet", "terminal", "keyboard",
+}
+MACHINE_NAMES = {
+    "dell", "inspiron", "optiplex", "precision", "latitude", "thinkpad", "lenovo",
+    "hp", "elitebook", "probook", "macbook", "imac", "mac", "surface", "acer", "asus",
+}
+# verb lemma -> (wrong preposition, right preposition) when the object is a machine
+PREP_WITH_MACHINE = {
+    "work": ("at", "on"),
+}
+
+ADVICE = {
+    "WRONG-PREP": "a person works on a computer, at a desk, at a job",
+    "NO-TOPIC": "open the paragraph on its idea; let the details support it",
+}
+
+DIGITS = re.compile(r"\d")
+
+
+def no_topic(sents):
+    """Paragraph rule: the first sentence carries a figure, a model number or a date."""
+    if len(sents) < 2:
+        return []
+    first = sents[0]
+    shown = [t.text for t in first if DIGITS.search(t.text)]
+    if shown:
+        return [("NO-TOPIC", "first sentence: " + ", ".join(shown[:3]), "state the idea first")]
+    return []
+
+
+PARAGRAPH_RULES = [no_topic]
+
+
+def _parser():
+    global _NLP
+    if _NLP is not None:
+        return _NLP
+    if os.path.isdir(VENV_SITE) and VENV_SITE not in sys.path:
+        sys.path.insert(0, VENV_SITE)
+    import spacy
+    _NLP = spacy.load("en_core_web_sm")
+    return _NLP
+
+
+def prose(text):
+    """Yield (line number, cleaned line) for lines written as prose."""
+    fenced = False
+    for n, line in enumerate(text.split("\n"), 1):
+        if line.lstrip().startswith("```"):
+            fenced = not fenced
+            continue
+        if fenced or not line.strip() or SKIP_LINE.match(line):
+            continue
+        yield n, INLINE_CODE.sub(lambda m: " " * len(m.group(0)), line)
+
+
+def is_machine(tok):
+    """A noun phrase that names a computer: its head or any compound in it."""
+    words = {t.lower_ for t in tok.subtree if t.pos_ in ("NOUN", "PROPN")}
+    return bool(words & MACHINE_NOUNS or words & MACHINE_NAMES)
+
+
+def wrong_prep(sent):
+    out = []
+    for tok in sent:
+        if tok.pos_ != "VERB" or tok.lemma_.lower() not in PREP_WITH_MACHINE:
+            continue
+        wrong, right = PREP_WITH_MACHINE[tok.lemma_.lower()]
+        for prep in tok.children:
+            if prep.dep_ == "prep" and prep.lower_ == wrong:
+                obj = next((c for c in prep.children if c.dep_ == "pobj"), None)
+                if obj is not None and is_machine(obj):
+                    out.append(("WRONG-PREP", f"{tok.text} {prep.text}", f"{tok.text} {right}"))
+    return out
+
+
+SENTENCE_RULES = [wrong_prep]
+
+
+def sentences(text):
+    """Yield (line, sentence) for each sentence on the prose lines."""
+    nlp = _parser()
+    for n, line in prose(text):
+        for sent in nlp(line).sents:
+            if sent.text.strip():
+                yield n, sent
+
+
+def profile(sent):
+    words = [t for t in sent if t.is_alpha or t.like_num]
+    root = sent.root
+    subj = next((c for c in root.children if c.dep_ in ("nsubj", "nsubjpass")), None)
+    before = (root.i - sent.start) if root else 0
+    clauses = 1 + sum(1 for t in sent if t.dep_ in ("conj",) and t.pos_ in ("VERB", "AUX")
+                      and t.head.i == root.i)
+    hung = sum(1 for t in sent if t.dep_ in ("relcl", "acl", "advcl", "ccomp"))
+    names = sum(1 for e in sent.ents if e.label_ in ("ORG", "PRODUCT", "GPE", "PERSON", "FAC", "LAW"))
+    opener = " ".join(t.text for t in subj.subtree) if subj is not None else sent[0].text
+    return (f"{len(words)} words · opens on “{opener}” ({before} words before the verb) · "
+            f"{clauses} main clause{'s' if clauses > 1 else ''}, {hung} hung on · {names} names")
+
+
+def scan(text):
+    rows = []
+    nlp = _parser()
+    for n, line in prose(text):
+        sents = [s for s in nlp(line).sents if s.text.strip()]
+        for rule in PARAGRAPH_RULES:
+            for code, span, fix in rule(sents):
+                rows.append((n, code, span, fix, sents[0].text.strip()))
+        for sent in sents:
+            for rule in SENTENCE_RULES:
+                for code, span, fix in rule(sent):
+                    rows.append((n, code, span, fix, sent.text.strip()))
+    return rows
+
+
+def run_tests():
+    """Each case: NAME.md beside NAME.expect, one 'CODE|span' per expected flag."""
+    if not os.path.isdir(TESTS):
+        print(f"rhythm-lint: no tests in {TESTS}")
+        return 1
+    failed = 0
+    for name in sorted(f for f in os.listdir(TESTS) if f.endswith(".md")):
+        base = os.path.join(TESTS, name[:-3])
+        got = {f"{c}|{s}" for _, c, s, _, _ in scan(open(base + ".md").read())}
+        want = {l.strip() for l in open(base + ".expect") if l.strip() and not l.startswith("#")}
+        if got == want:
+            print(f"  pass  {name}  ({len(want)} flags)")
+        else:
+            failed += 1
+            print(f"  FAIL  {name}")
+            for x in sorted(want - got):
+                print(f"        missed  {x}")
+            for x in sorted(got - want):
+                print(f"        extra   {x}")
+    return 1 if failed else 0
+
+
+def main(args):
+    if "--test" in args:
+        return run_tests()
+    show = "--profile" in args
+    args = [a for a in args if a != "--profile"]
+    if not args:
+        print(__doc__.strip())
+        return 0
+    for path in args:
+        text = open(path).read()
+        if show:
+            print(f"\n== rhythm-lint profile: {path} ==")
+            for n, sent in sentences(text):
+                print(f"    {n:>4}: {profile(sent)}\n          {sent.text.strip()}")
+        rows = scan(text)
+        if rows:
+            print(f"\n== rhythm-lint: {path} ==  ({len(rows)} to read)")
+            for n, code, span, fix, ctx in rows:
+                snip = ctx if len(ctx) < 96 else ctx[:93] + "…"
+                print(f"    {n:>4}: [{code}] “{span}” → “{fix}” — {snip}")
+        else:
+            print(f"rhythm-lint: no rhythm flags in {path}")
+    print("\n  (report, never a rewrite. A person decides.)")
+    for k, v in ADVICE.items():
+        print(f"   {k:<11} {v}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

@@ -1,0 +1,1 @@
+The City of Calder’s clerk works at a Dell Inspiron 5567 that runs Windows 10. Microsoft’s managers ended support for Windows 10 on October 14, 2025, and its engineers support Windows 11 only on newer processors than the Inspiron’s. The Inspiron still turns on and does the clerk’s work, but it gets no security updates. The city called your firm to put it back in service.

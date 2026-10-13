@@ -1,0 +1,6 @@
+# Hands-On Linux Infrastructure, Chapter 1, opening paragraph. Tom's verdicts, 13 Oct 2026.
+# Sentence 1: "works at" is wrong; a person works on a computer.
+WRONG-PREP|works at
+# The paragraph: no topic sentence. Sentence 2 is support, not a topic; sentence 1 is a detail. "The rhythm needs a topic."
+NO-TOPIC|first sentence: 5567, 10
+# Sentences 2-4: not yet ruled one by one.
