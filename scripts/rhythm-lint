@@ -29,6 +29,14 @@ RULES
                paragraph after a code block. A person decides
                whether that sentence states the idea. (Tom, 13 Oct 2026)
 
+  SOUND-ECHO   two words close together in one sentence that open on the same
+               stressed sound or rhyme. "An owner can boot Linux on an older Dell
+               laptop": owner and older both open on a stressed long O. The echo
+               pulls the reader's attention off the subject and onto the sound.
+               Read from the CMU Pronouncing Dictionary (data/cmudict). Content
+               words only, within six words; the same word twice belongs to
+               repeat-lint. (Tom, 15 Oct 2026)
+
   THESIS       the author marks the thesis with <!-- thesis --> on the line above it.
                The first sentence after the mark is tested against McCrimmon's
                tests (Writing with a Purpose, 1963, p. 40): "a single sentence,
@@ -79,9 +87,82 @@ PREP_WITH_MACHINE = {
     "work": ("at", "on"),
 }
 
+CMUDICT = os.path.join(os.path.dirname(HERE), "data", "cmudict")
+_PRON = None
+ECHO_WINDOW = 6
+CONTENT = {"NOUN", "PROPN", "VERB", "ADJ", "ADV"}
+# Words a reader passes over without hearing them, and names that come in sets.
+ECHO_SKIP = {
+    "then", "again", "also", "only", "now", "still", "even", "just", "once", "too",
+    "january", "february", "march", "april", "may", "june", "july", "august",
+    "september", "october", "november", "december",
+}
+
+
+def _pron():
+    global _PRON
+    if _PRON is None:
+        _PRON = {}
+        if os.path.exists(CMUDICT):
+            for l in open(CMUDICT, encoding="latin-1"):
+                p = l.split()
+                if len(p) > 2 and p[1] == "1":
+                    _PRON[p[0].lower()] = p[2:]
+    return _PRON
+
+
+def _bare(x):
+    return re.sub(r"\d", "", x)
+
+
+def sound_head(ph):
+    """The sounds up to the first vowel, when that vowel carries the main stress."""
+    out = []
+    for x in ph:
+        out.append(_bare(x))
+        if x[-1].isdigit():
+            return tuple(out) if x[-1] == "1" else None
+    return None
+
+
+def sound_tail(ph):
+    """The rhyme: the last stressed vowel to the end."""
+    idx = [i for i, x in enumerate(ph) if x.endswith("1")]
+    return tuple(_bare(x) for x in ph[idx[-1]:]) if idx else None
+
+
+def sound_echo(sent):
+    pron = _pron()
+    words = [(t, pron.get(t.lower_)) for t in sent
+             if t.pos_ in CONTENT and t.is_alpha and len(t) > 2 and pron.get(t.lower_)
+             # a product's or a program's name cannot change: PAM, Samba, Active Directory
+             and not t.text.isupper() and t.ent_type_ not in ("PRODUCT", "ORG", "WORK_OF_ART")]
+    out, seen = [], set()
+    for i, (a, pa) in enumerate(words):
+        for b, pb in words[i + 1:]:
+            if b.i - a.i > ECHO_WINDOW:
+                break
+            la, lb = a.lower_, b.lower_
+            # the same word, or one root in two forms (wired / wireless): repeat-lint's job
+            if a.lemma_.lower() == b.lemma_.lower() or la[:4] == lb[:4] or la in ECHO_SKIP or lb in ECHO_SKIP:
+                continue
+            ha, hb = sound_head(pa), sound_head(pb)
+            ta, tb = sound_tail(pa), sound_tail(pb)
+            why = None
+            if ha and ha == hb:
+                why = "same opening sound"
+            elif ta and ta == tb and len(ta) >= 2:
+                why = "rhyme"
+            if why and (a.i, b.i) not in seen:
+                seen.add((a.i, b.i))
+                out.append(("SOUND-ECHO", f"{a.text} / {b.text}", why + "; change one word"))
+    return out
+
+
 ADVICE = {
     "WRONG-PREP": "a person works on a computer, at a desk, at a job",
     "NO-TOPIC": "open the paragraph on its idea; let the details support it",
+    "SOUND-ECHO": "words that echo in sound pull the eye off the subject",
     "THESIS": "one simple sentence, one claim, words with one reading",
 }
 
@@ -155,7 +236,7 @@ def wrong_prep(sent):
     return out
 
 
-SENTENCE_RULES = [wrong_prep]
+SENTENCE_RULES = [wrong_prep, sound_echo]
 
 
 def thesis_rules(sent):

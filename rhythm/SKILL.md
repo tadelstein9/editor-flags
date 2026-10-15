@@ -195,9 +195,19 @@ he wrote. He decides.
 |---|---|---|
 | WRONG-PREP | a person and a computer joined by the wrong preposition: "works at a Dell" | Tom, 13 Oct 2026: a person works on a computer |
 | NO-TOPIC | a paragraph whose first sentence carries a figure, a model number or a date | Tom, 13 Oct 2026; Bain Rule III |
+| SOUND-ECHO | two words within six of each other that open on the same stressed sound, or rhyme: "an owner … an older Dell" | Tom, 15 Oct 2026 |
 | THESIS-TWO | two main clauses in the thesis, each with its own subject | McCrimmon: "only one dominant idea" |
 | THESIS-COMPLEX | a clause hung on the thesis's main clause | McCrimmon: "preferably a simple sentence" |
 | THESIS-VAGUE | *things*, *issues*, *various*, *aspects* and their kin in the thesis | McCrimmon: "words which permit only one interpretation" |
+
+**Sound echoes break the rhythm.** Tom caught one in a draft that passed
+every other test: "An owner can boot Linux on an older Dell laptop." *Owner*
+and *older* open on the same stressed long O. A reader hears the echo, and
+the attention moves off the subject and onto the sound. The program reads
+pronunciations from the CMU Pronouncing Dictionary (`data/cmudict`) and
+skips the same word twice (repeat-lint's job), one root in two forms, small
+adverbs such as *then* and *again*, month names, and the names of products
+and programs, which no writer can change.
 
 **Mark the thesis.** Put `<!-- thesis -->` on the line above the thesis.
 Markdown hides the mark, so readers never see it. The program tests the
