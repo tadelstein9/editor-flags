@@ -1,0 +1,31 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "editor-flags",
+  "description": "Skills and programs that flag what a model leaves in a draft. They report; the writer decides.",
+  "owner": {
+    "name": "Tom Adelstein"
+  },
+  "plugins": [
+    {
+      "name": "editor-flags",
+      "description": "Expository order (thesis, topic sentence plus two supports), sound echoes, repetition, false agency, floating past perfect, chips and mixed register. Each skill pairs with a program that reports and never rewrites.",
+      "author": {
+        "name": "Tom Adelstein"
+      },
+      "category": "productivity",
+      "homepage": "https://github.com/tadelstein9/editor-flags",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./rhythm",
+        "./agency-lint",
+        "./repeat-lint",
+        "./reader-questions",
+        "./tense-normalize",
+        "./expository-phrase",
+        "./mixed-register",
+        "./secondhand-witness"
+      ]
+    }
+  ]
+}

@@ -16,6 +16,7 @@ The wall is the habit. A model reaches for *had ended* and *had been hired* beca
 scripts/had-lint FILE
 scripts/that-lint FILE
 scripts/chip-lint FILE
+scripts/rhythm-lint FILE
 ```
 
 | program | what it prints |
@@ -71,12 +72,25 @@ Ninety-five checks across six programs. All ninety-five passed on 26 September 2
 
 ## Skills
 
-Copy each folder into the skills directory your agent reads, or:
+In Claude Code, add the repository as a plugin marketplace, then install:
+
+```
+/plugin marketplace add tadelstein9/editor-flags
+/plugin install editor-flags@editor-flags
+```
+
+Or copy each folder into the skills directory your agent reads, or:
 
 ```
 npx skills add tadelstein9/editor-flags
 ```
 
+The skills call the programs in `scripts/`, so put that folder on your `PATH`.
+
+- `rhythm` — one thesis for the piece, a topic sentence plus two supports for each paragraph; `rhythm-lint` tests the marked thesis and flags sound echoes such as *an owner … an older Dell*
+- `repeat-lint` — the same word twice in one sentence, and sentences in a row that open the same way
+- `reader-questions` — the words a reader stops at
+- `secondhand-witness` — a reporter's account in the author's voice
 - `tense-normalize` — simple past unless a time shift must be marked
 - `expository-phrase` — gather, verb, objective; cut tautology and needless *that*-clauses
 - `mixed-register` — one mouth, no chips, tech-speak becomes human action
