@@ -62,6 +62,8 @@ PATTERNS = [
     ("ABSOLUTE", r"\bnothing\s+(?:leaves|changes|moves|happens|remains|survives|escapes|is\s+lost|of\s+it)\b"),
     ("ABSOLUTE", r"\bNone of (?:them|it|this|these|those|which)\b"),
     ("ABSOLUTE", r"\bNot one of\b"),
+    # "nowhere" names a place that does not exist (Tom, 15 Oct 2026): "point nowhere"
+    ("ABSOLUTE", r"(?i)\bnowhere\b"),
     ("ABSOLUTE", r"\bnot a (?:single|word|thing|one)\b"),
     ("SWEEP", r"\bnever\s+(?:once|leaves|left|found|goes|does|did|has)\b"),
     ("SWEEP", r"(?i)\bno\s+\w+,\s*no\s+\w+,\s*no\s+\w+"),
