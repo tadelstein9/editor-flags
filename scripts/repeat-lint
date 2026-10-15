@@ -108,7 +108,7 @@ def tokens(sentence):
     out = []
     for m in WORD.finditer(sentence):
         w = m.group(0)
-        # a word glued to digits is a host or a version: paris-04, v1.36
+        # a word glued to digits is a host or a version: inspiron, v1.36
         end = m.end()
         if end < len(sentence) and sentence[end].isdigit():
             continue

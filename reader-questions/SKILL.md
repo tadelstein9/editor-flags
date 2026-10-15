@@ -50,28 +50,28 @@ repair.
 
 | The stop | Specimen | The reader asked | The repair |
 |---|---|---|---|
-| **A vague word** | *would have shown the drop* | the drop? what's that? | Say what happened: *paris-07 could not reach the Internet* |
+| **A vague word** | *would have shown the drop* | the drop? what's that? | Say what happened: *precision could not reach the Internet* |
 | | *A watcher would have shown* | a watcher of what? | Name the thing: *the monitoring you build in this chapter* |
 | **A figure of speech** | *what stays in the room* | what does that mean in English? | Say the fact: *which files each computer backs up, and which system holds each copy* |
 | | *the inference server's road to the Internet* | WAIT, this is confusing | *its only connection to the Internet* |
 | **A missing object** | *which part of that needs a person* | to do what? | *when something has stopped working and you need to fix it* |
 | | *what has failed or would hurt* | hurt what? | *what would stop your work if it broke, such as the backups* |
 | **A list that names no item** | *asks every computer for its numbers* | what numbers? | Name them: *how busy the processor runs, how much memory sits free, how much room the disk has left* |
-| **A missing place** | *keep it in Git* | where? | *on the lab's Git server, paris-05* |
+| **A missing place** | *keep it in Git* | where? | *on the lab's Git server, optiplex-9020* |
 | **A certainty word** | *what happens when a disk dies* | "if" | A thing that may not happen takes *if* |
 | **A short form** | *CKA*, *LFCS*, *Mint* | spell it out | *the Certified Kubernetes Administrator exam*, every time; *Linux Mint* |
-| **The book's own word** | *survive a dead disk*; *paris-05's road out*; *a narrow door*; *a customer's box* | use English | The standard term: *a failed disk*, *route*, *port* or *way in*, *computer* |
+| **The book's own word** | *survive a dead disk*; *optiplex-9020's road out*; *a narrow door*; *a customer's box* | use English | The standard term: *a failed disk*, *route*, *port* or *way in*, *computer* |
 
 A word the book coined, or a casual one it repeated until it felt like a
 term, is the eighth stop. The author's rule, 1 October 2026: "If the book
 has its own words like 'dead disk' instead of failed disk, we need to
 remove our own vernacular and use English." A comparison the page frames
-as a comparison, *picture paris-05 as an office building with a
+as a comparison, *picture optiplex-9020 as an office building with a
 mailroom*, is a different thing; the author decides whether it stays.
 
 A paragraph can stop the reader as a whole. *Your lab holds four computers
 ... and the lab learned of it hours later, when the author sat down at
-paris-06* drew WAIT THIS IS CONFUSING. Write the plain version: one fact
+optiplex-7080* drew WAIT THIS IS CONFUSING. Write the plain version: one fact
 to a sentence, in the order things happened, with the person who acted
 named.
 

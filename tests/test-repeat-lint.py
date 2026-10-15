@@ -84,7 +84,7 @@ check("a block quote is skipped",
       run("> The server token, stored on the server, joins a server.\n"),
       [])
 check("host names are not words",
-      run("paris-04, paris-06 and paris-07 back up to paris-05.\n"),
+      run("inspiron, optiplex-7080 and precision back up to optiplex-9020.\n"),
       [])
 check("a path is not a word",
       run("GitHub's record for minio/minio shows the archive.\n"),
@@ -103,7 +103,7 @@ check("short words below the minimum",
       [])
 
 check("a quotation that ends a sentence ends it",
-      run('The manual warns that a timer "will immediately elapse." paris-04 booted before you wrote the timer.\n'),
+      run('The manual warns that a timer "will immediately elapse." inspiron booted before you wrote the timer.\n'),
       [])
 check("underscores inside a name stay",
       run("sshd reads sshd_config and then the files in sshd_config.d in order.\n"),
@@ -129,7 +129,7 @@ check("a run of The is not flagged",
       run("The rule waits. The page lists it. The log names the man.\n"),
       [])
 check("list items are parallel on purpose",
-      run("- port 6443 on paris-07\n- port 8472 on every computer\n- port 10250 on every computer\n"),
+      run("- port 6443 on precision\n- port 8472 on every computer\n- port 10250 on every computer\n"),
       [])
 
 print()

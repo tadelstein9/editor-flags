@@ -80,7 +80,7 @@ nothing. Put the person who decides in the subject seat, and let the
 program do what programs do: listen, read, enforce, accept, refuse, log.
 
 > You choose which accounts may log in, and sshd, the SSH server program
-> on paris-04, enforces your choice.
+> on inspiron, enforces your choice.
 > The ufw authors write in the manual that an active UFW "will not flush
 > the chains when adding or removing rules."
 
@@ -91,8 +91,8 @@ assume, notice. A program may refuse: sshd refuses a key, and that stays.
 ### 3. TRAVEL — a network told as a trip
 
 > ...once a computer arrives there.
-> paris-07 knocks on port 22.
-> Wait 35 seconds and log in again, and paris-04 lets you in.
+> precision knocks on port 22.
+> Wait 35 seconds and log in again, and inspiron lets you in.
 
 Computers do not arrive. A client opens a connection, and packets reach a
 listening port. A host does not knock or let anyone in: UFW admits or
@@ -114,7 +114,7 @@ A technical sentence anchors every location to a host, a port, a file or
 a service. *There* closing a sentence about a network, with no place named,
 leaves the reader to guess which one.
 
-> ...once a client opens a connection to port 22 on paris-04.
+> ...once a client opens a connection to port 22 on inspiron.
 
 ### 5. HIDDEN-FOUNDER — a company that starts itself
 
@@ -162,19 +162,19 @@ them:
 like the source code. The reader hears two voices. Hold one register for
 the sentence.
 
-> UFW came installed on paris-04. You write rules in UFW's short syntax,
+> UFW came installed on inspiron. You write rules in UFW's short syntax,
 > and UFW translates each rule into netfilter rules, the packet filters the
 > Linux kernel enforces.
 
 ### 8. A fact that turns into an instruction without a transition
 
-> paris-04 offers the network one service, SSH, and only one computer needs
+> inspiron offers the network one service, SSH, and only one computer needs
 > it. You write that sentence as a firewall rule.
 
 The first sentence describes. The second instructs. Between them the reader
 loses the frame. Say the turn in words.
 
-> ...and one computer needs it: the command center, paris-06. In this
+> ...and one computer needs it: the command center, optiplex-7080. In this
 > section you turn that fact into a firewall rule.
 
 ### 9. A state that seems to contradict itself

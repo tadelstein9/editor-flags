@@ -58,11 +58,11 @@ check("serves as", "The hardened endpoint serves as the machine a person sits at
 check("SSH decides", "SSH decides who gets in once a computer arrives there.", "THING-MINDS")
 check("a computer arrives", "SSH decides who gets in once a computer arrives there.", "TRAVEL")
 check("arrives there", "SSH decides who gets in once a computer arrives there.", "LOOSE-THERE")
-check("knocks", "In the first line, paris-07 knocks on port 22 from the lab network.", "TRAVEL")
-check("lets you in", "Wait 35 seconds and log in again, and paris-04 lets you in.", "TRAVEL")
+check("knocks", "In the first line, precision knocks on port 22 from the lab network.", "TRAVEL")
+check("lets you in", "Wait 35 seconds and log in again, and inspiron lets you in.", "TRAVEL")
 check("the manual promises", "The ufw manual promises that an active firewall keeps your session.", "THING-MINDS")
 check("this book walks", "The signed spine: this book walks the work those seats require.", "TRAVEL")
-check("a login gets in", "A new key login from paris-06 gets in with the undo showing.", "TRAVEL")
+check("a login gets in", "A new key login from optiplex-7080 gets in with the undo showing.", "TRAVEL")
 
 check("Bynari started as", "Bynari started as a consulting business.", "HIDDEN-FOUNDER")
 check("Bynari became a partner", "Bynari became IBM's first Linux Influencer Partner in April 2001.", "HIDDEN-FOUNDER")
@@ -87,13 +87,15 @@ check("a market arrival", "Linux indeed has arrived on the desktop and is ready 
 check("plays a role in", "Unfortunately, Linux plays a minor role in this project.", None)
 check("there with an antecedent", "They post some helpful information there.", None)
 check("a person decides", "Tom decides which account may log in.", None)
-check("the administrator knows", "The administrator knows the key sits on paris-06.", None)
+check("the administrator knows", "The administrator knows the key on optiplex-7080.", None)
+# The old hostname, paris-06, hid "sits" from the parser; a thing does not sit (Tom, 7 Oct 2026).
+check("the key sits", "The administrator knows the key sits on optiplex-7080.", "THING-LIVES")
 check("log in", "Log in from the command center and read the status.", None)
 check("the rewrite", "In this section you choose which accounts may log in over that connection, "
-      "and the SSH server on paris-04, the program sshd, enforces your choice.", None)
+      "and the SSH server on inspiron, the program sshd, enforces your choice.", None)
 check("admits and accepts", "Wait 35 seconds and connect again: UFW admits the connection, "
       "and sshd accepts your key.", None)
-check("a program refuses", "sshd refused the password. UFW dropped paris-07.", None)
+check("a program refuses", "sshd refused the password. UFW dropped precision.", None)
 check("there is", "There is one rule in the list, and there are two addresses.", None)
 check("a quotation stays", 'The page quoted the draft: "SSH decides who gets in."', None)
 check("inline code stays", "Run `the server decides` as a test string.", None)

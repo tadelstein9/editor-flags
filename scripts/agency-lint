@@ -12,7 +12,7 @@ hardened Linux laptop. Three sentences, three corrections:
       arrive; packets reach a listening port. "There" has no antecedent.
       "Gets in" is conversational, not technical.
 
-  "paris-07 knocks on port 22."
+  "precision knocks on port 22."
       The same travel picture, found in a later sweep.
 
 Each fault puts the wrong thing in the subject seat, or gives a network a
@@ -229,7 +229,18 @@ PEOPLE = {
     "doctor", "nurse", "boss", "employer", "recruiter", "candidate",
     "applicant", "partner", "media", "press", "public", "kid", "kids",
 }
-HOSTNAME = re.compile(r"^[a-z][a-z0-9]*-\d+$", re.I)
+_HOST_PATTERN = re.compile(r"^[a-z][a-z0-9]*-\d+$", re.I)
+# Hostnames without digits, written lowercase as the book writes them:
+# the Inspiron 5567 is "inspiron", the Precision 3640 is "precision".
+BOOK_HOSTS = {"inspiron", "precision"}
+
+
+class _Hostname:
+    def match(self, text):
+        return text in BOOK_HOSTS or _HOST_PATTERN.match(text)
+
+
+HOSTNAME = _Hostname()
 PERSON_SUFFIX = ("er", "ers", "or", "ors", "ist", "ists", "ian", "ians",
                  "ant", "ants", "ent", "ents")
 

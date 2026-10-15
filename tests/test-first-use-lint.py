@@ -48,7 +48,7 @@ def check(name, got, want):
 
 
 # FLAG: the fault the program exists for.
-r = run("SSH listens on port 22 at every address paris-04 holds.\n")
+r = run("SSH listens on port 22 at every address inspiron holds.\n")
 check("port used, never explained", r.get("port"), "UNEXPLAINED")
 
 r = run("SSH listens on port 22 at every address.\n\n"
@@ -98,7 +98,7 @@ with tempfile.TemporaryDirectory() as d:
     ch2 = os.path.join(d, "chapter-02.md"); ch3 = os.path.join(d, "chapter-03.md")
     ledger = os.path.join(d, "cleared-terms.tsv")
     open(ch2, "w").write("A program listens on a port, a number from 0 to 65535.\n")
-    open(ch3, "w").write("paris-05 listens on port 22.\n")
+    open(ch3, "w").write("optiplex-9020 listens on port 22.\n")
     import contextlib, io
     with contextlib.redirect_stdout(io.StringIO()):
         f.main(["--emit", ledger, ch2])

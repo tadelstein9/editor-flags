@@ -70,7 +70,7 @@ Pick the lightest repair that keeps the fact true. In order:
    - *a Git server, a computer that keeps every version* → *a **system** that keeps*
    - *sshd reads the files in order ... for each setting* → *for each **option***
 3. **Cut the second one** when the reader already has it.
-   - *paris-04 still found the domain's Administrator account* → *found **its** Administrator account*
+   - *inspiron still found the domain's Administrator account* → *found **its** Administrator account*
    - *the list of timers systemd starts at boot, and systemd starts it* → *the list systemd works through at boot, and the timer starts*
 
 A synonym must not change the fact. *Machine* stays out of a book that
