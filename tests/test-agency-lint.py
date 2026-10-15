@@ -88,7 +88,7 @@ check("plays a role in", "Unfortunately, Linux plays a minor role in this projec
 check("there with an antecedent", "They post some helpful information there.", None)
 check("a person decides", "Tom decides which account may log in.", None)
 check("the administrator knows", "The administrator knows the key on optiplex-7080.", None)
-# The old hostname, paris-06, hid "sits" from the parser; a thing does not sit (Tom, 7 Oct 2026).
+# The old hostname hid "sits" from the parser; a thing does not sit (Tom, 7 Oct 2026).
 check("the key sits", "The administrator knows the key sits on optiplex-7080.", "THING-LIVES")
 check("log in", "Log in from the command center and read the status.", None)
 check("the rewrite", "In this section you choose which accounts may log in over that connection, "
