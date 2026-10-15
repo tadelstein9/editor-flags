@@ -197,7 +197,6 @@ he wrote. He decides.
 | NO-TOPIC | a paragraph whose first sentence carries a figure, a model number or a date | Tom, 13 Oct 2026; Bain Rule III |
 | SOUND-ECHO | two words within six of each other that open on the same stressed sound, or rhyme: "an owner … an older Dell" | Tom, 15 Oct 2026 |
 | THESIS-TWO | two main clauses in the thesis, each with its own subject | McCrimmon: "only one dominant idea" |
-| THESIS-COMPLEX | a clause hung on the thesis's main clause | McCrimmon: "preferably a simple sentence" |
 | THESIS-VAGUE | *things*, *issues*, *various*, *aspects* and their kin in the thesis | McCrimmon: "words which permit only one interpretation" |
 
 **Sound echoes break the rhythm.** Tom caught one in a draft that passed
@@ -208,6 +207,11 @@ pronunciations from the CMU Pronouncing Dictionary (`data/cmudict`) and
 skips the same word twice (repeat-lint's job), one root in two forms, small
 adverbs such as *then* and *again*, month names, and the names of products
 and programs, which no writer can change.
+
+**A simple sentence is a preference.** McCrimmon wrote "preferably a
+simple sentence." A thesis with one short clause, such as "A backup counts
+only after a restore works," reads well, and the program does not flag it.
+Tom, 15 Oct 2026: "sounds OK but I wouldn't make it a rule."
 
 **Mark the thesis.** Put `<!-- thesis -->` on the line above the thesis.
 Markdown hides the mark, so readers never see it. The program tests the
