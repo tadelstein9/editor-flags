@@ -61,6 +61,14 @@ The four tests, in his words and in practice:
 | Unified | it commits the writer "to deal with only one dominant idea" | Does it make one claim, or two joined by *and*? |
 | Precise | "words which permit only one interpretation" | Could a reader take any word two ways? |
 
+**The thesis covers the whole piece.** Every section develops some part of
+it, and no section strays outside it. After drafting, read the headings
+against the thesis. A section the thesis does not cover means one of two
+repairs: widen the thesis to hold it, or cut the section. In the first test
+of this skill, a draft on Texas law stated "two things: trained employees
+and prompt reports," then spent half its length on the State's framework,
+which the thesis never mentioned.
+
 **A thesis that fails unity**, from the first draft of the book's Chapter 1:
 
 > The City of Calder called your firm because the state's Cybersecurity
@@ -166,7 +174,9 @@ The rule rests on the reader, not on the habits of magazine writers.
 **When asked to write.** Before the first sentence, write the thesis and
 test it against the four tests. Put `<!-- thesis -->` on the line above it. List each paragraph's topic sentence under
 it, in order. Read that list alone: it should argue the thesis by itself.
-Then draft each paragraph as a topic sentence and two supports. Follow
+Then draft each paragraph as a topic sentence and two supports. When a
+paragraph shows a command, state the topic before the command and let the
+output support it after. Last, read the headings against the thesis. Follow
 `tom-voice` for the sentences.
 
 **When reading a draft.** Find the thesis. Underline each paragraph's first
@@ -197,6 +207,11 @@ for a person to answer. With no mark, the report says so and tests nothing.
 
 NO-TOPIC flags the sign of a detail, not the absence of a topic. A date can
 be the topic. The flag asks a person to look.
+
+NO-TOPIC skips the opening above the thesis mark, where Bain allows a
+paragraph "obviously preparatory," and skips text that resumes a paragraph
+after a code block. A paragraph that a command interrupts still opens with
+its topic sentence before the command.
 
 `rhythm-lint --test` runs the cases in `tests/rhythm/`.
 

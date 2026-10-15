@@ -23,7 +23,10 @@ RULES
                is to the paragraph"). The program sees the sign of a detail:
                a first sentence carrying a figure, a model number or a date
                (three digits or more, or letters mixed with digits), in a
-               paragraph of two or more sentences. List items do not count. A person decides
+               paragraph of two or more sentences. List items do not count, nor
+               the opening above a <!-- thesis --> mark (Bain allows a first
+               paragraph "obviously preparatory"), nor text that resumes a
+               paragraph after a code block. A person decides
                whether that sentence states the idea. (Tom, 13 Oct 2026)
 
   THESIS       the author marks the thesis with <!-- thesis --> on the line above it.
@@ -35,7 +38,8 @@ RULES
                  THESIS-COMPLEX  a clause hung on the main one (because, which,
                                  that ...): "preferably a simple sentence"
                  THESIS-VAGUE    a word open to more than one reading: things,
-                                 issues, various, aspects ...
+                                 issues, various, aspects ... A word that a colon
+                                 list names at once ("two things: X and Y") passes.
                Restriction takes judgment; the report asks it as a question.
                With no mark, the report says so and tests nothing. (Tom, 15 Oct 2026)
 
@@ -166,7 +170,9 @@ def thesis_rules(sent):
     if hung:
         mark = [c.text for t in hung for c in t.children if c.dep_ in ("mark",)] or [hung[0].text]
         out.append(("THESIS-COMPLEX", ", ".join(mark), "preferably a simple sentence"))
-    vague = [t.text for t in sent if t.lower_ in VAGUE]
+    # a vague word that a colon list names at once ("two things: X and Y") stays
+    vague = [t.text for t in sent if t.lower_ in VAGUE
+             and not (t.i + 1 < len(t.doc) and t.doc[t.i + 1].text == ":")]
     if vague:
         out.append(("THESIS-VAGUE", ", ".join(vague), "a word with one reading"))
     return out
@@ -208,19 +214,35 @@ def profile(sent):
             f"{clauses} main clause{'s' if clauses > 1 else ''}, {hung} hung on · {names} names")
 
 
+def continued(text):
+    """Line numbers of prose that resumes a paragraph after a code block."""
+    lines = text.split("\n")
+    out, prev = set(), ""
+    for n, line in enumerate(lines, 1):
+        if line.strip():
+            if prev.lstrip().startswith("```") and not line.lstrip().startswith("```"):
+                out.add(n)
+            prev = line
+    return out
+
+
 def scan(text):
     rows = []
     nlp = _parser()
+    found = find_thesis(text)
+    # Bain's allowance: an opening "obviously preparatory" before the thesis
+    start = found[0] if found else 0
+    after_code = continued(text)
     for n, line in prose(text):
         sents = [s for s in nlp(line).sents if s.text.strip()]
-        for rule in ([] if LIST_ITEM.match(line) else PARAGRAPH_RULES):
+        skip = LIST_ITEM.match(line) or n < start or n in after_code
+        for rule in ([] if skip else PARAGRAPH_RULES):
             for code, span, fix in rule(sents):
                 rows.append((n, code, span, fix, sents[0].text.strip()))
         for sent in sents:
             for rule in SENTENCE_RULES:
                 for code, span, fix in rule(sent):
                     rows.append((n, code, span, fix, sent.text.strip()))
-    found = find_thesis(text)
     if found:
         n, line = found
         sent = next(s for s in nlp(line).sents if s.text.strip())
