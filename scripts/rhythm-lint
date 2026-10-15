@@ -26,6 +26,19 @@ RULES
                paragraph of two or more sentences. List items do not count. A person decides
                whether that sentence states the idea. (Tom, 13 Oct 2026)
 
+  THESIS       the author marks the thesis with <!-- thesis --> on the line above it.
+               The first sentence after the mark is tested against McCrimmon's
+               tests (Writing with a Purpose, 1963, p. 40): "a single sentence,
+               preferably a simple sentence," "restricted, unified, and precise."
+                 THESIS-TWO      two main clauses, each with its own subject:
+                                 two claims where unity asks for one
+                 THESIS-COMPLEX  a clause hung on the main one (because, which,
+                                 that ...): "preferably a simple sentence"
+                 THESIS-VAGUE    a word open to more than one reading: things,
+                                 issues, various, aspects ...
+               Restriction takes judgment; the report asks it as a question.
+               With no mark, the report says so and tests nothing. (Tom, 15 Oct 2026)
+
 Reads grammar with spaCy from ~/pipeline-venv. Skips fenced code, inline
 code, headings, tables and block quotations. Reports. Never rewrites. A
 person decides on every flag. Always exits 0.
@@ -39,7 +52,13 @@ TESTS = os.path.join(os.path.dirname(HERE), "tests", "rhythm")
 VENV_SITE = os.path.expanduser("~/pipeline-venv/lib/python3.12/site-packages")
 _NLP = None
 
-SKIP_LINE = re.compile(r"^\s*(?:#{1,6}\s|\||>|!\[|https?://|\s*[-*=]{3,}\s*$)")
+SKIP_LINE = re.compile(r"^\s*(?:#{1,6}\s|\||>|!\[|https?://|<!--|\s*[-*=]{3,}\s*$)")
+THESIS_MARK = re.compile(r"^\s*<!--\s*thesis\s*-->\s*$", re.I)
+VAGUE = {
+    "thing", "things", "issue", "issues", "various", "aspect", "aspects", "stuff",
+    "factor", "factors", "area", "areas", "certain", "very", "really", "interesting",
+    "important", "significant", "nature", "situation", "element", "elements",
+}
 INLINE_CODE = re.compile(r"`[^`]*`")
 
 # Machines a person works on, by common noun and by maker or model name.
@@ -59,6 +78,7 @@ PREP_WITH_MACHINE = {
 ADVICE = {
     "WRONG-PREP": "a person works on a computer, at a desk, at a job",
     "NO-TOPIC": "open the paragraph on its idea; let the details support it",
+    "THESIS": "one simple sentence, one claim, words with one reading",
 }
 
 DIGITS = re.compile(r"\d")
@@ -134,6 +154,37 @@ def wrong_prep(sent):
 SENTENCE_RULES = [wrong_prep]
 
 
+def thesis_rules(sent):
+    """McCrimmon's tests on the marked thesis sentence."""
+    out = []
+    clauses = [t for t in sent if t.dep_ == "conj" and t.pos_ in ("VERB", "AUX")
+               and any(c.dep_ in ("nsubj", "nsubjpass", "expl") for c in t.children)]
+    if clauses:
+        out.append(("THESIS-TWO", " / ".join(t.text for t in [sent.root] + clauses),
+                    "one claim; show the relation in one clause"))
+    hung = [t for t in sent if t.dep_ in ("advcl", "relcl", "ccomp", "csubj")]
+    if hung:
+        mark = [c.text for t in hung for c in t.children if c.dep_ in ("mark",)] or [hung[0].text]
+        out.append(("THESIS-COMPLEX", ", ".join(mark), "preferably a simple sentence"))
+    vague = [t.text for t in sent if t.lower_ in VAGUE]
+    if vague:
+        out.append(("THESIS-VAGUE", ", ".join(vague), "a word with one reading"))
+    return out
+
+
+def find_thesis(text):
+    """The first prose line after a <!-- thesis --> mark: (line number, line) or None."""
+    marked = False
+    lines = dict(prose(text))
+    for n, line in enumerate(text.split("\n"), 1):
+        if THESIS_MARK.match(line):
+            marked = True
+            continue
+        if marked and n in lines:
+            return n, lines[n]
+    return None
+
+
 def sentences(text):
     """Yield (line, sentence) for each sentence on the prose lines."""
     nlp = _parser()
@@ -169,6 +220,12 @@ def scan(text):
             for rule in SENTENCE_RULES:
                 for code, span, fix in rule(sent):
                     rows.append((n, code, span, fix, sent.text.strip()))
+    found = find_thesis(text)
+    if found:
+        n, line = found
+        sent = next(s for s in nlp(line).sents if s.text.strip())
+        for code, span, fix in thesis_rules(sent):
+            rows.append((n, code, span, fix, sent.text.strip()))
     return rows
 
 
@@ -209,6 +266,13 @@ def main(args):
             for n, sent in sentences(text):
                 print(f"    {n:>4}: {profile(sent)}\n          {sent.text.strip()}")
         rows = scan(text)
+        found = find_thesis(text)
+        if found:
+            th = next(s for s in _parser()(found[1]).sents if s.text.strip()).text.strip()
+            print(f"\n  thesis, line {found[0]}: {th}")
+            print("  restricted? can this piece, at this length, deliver it? (a person answers)")
+        else:
+            print(f"\n  no <!-- thesis --> mark in {path}; thesis not tested")
         if rows:
             print(f"\n== rhythm-lint: {path} ==  ({len(rows)} to read)")
             for n, code, span, fix, ctx in rows:

@@ -164,7 +164,7 @@ The rule rests on the reader, not on the habits of magazine writers.
 ## How to use it
 
 **When asked to write.** Before the first sentence, write the thesis and
-test it against the four tests. List each paragraph's topic sentence under
+test it against the four tests. Put `<!-- thesis -->` on the line above it. List each paragraph's topic sentence under
 it, in order. Read that list alone: it should argue the thesis by itself.
 Then draft each paragraph as a topic sentence and two supports. Follow
 `tom-voice` for the sentences.
@@ -185,6 +185,15 @@ he wrote. He decides.
 |---|---|---|
 | WRONG-PREP | a person and a computer joined by the wrong preposition: "works at a Dell" | Tom, 13 Oct 2026: a person works on a computer |
 | NO-TOPIC | a paragraph whose first sentence carries a figure, a model number or a date | Tom, 13 Oct 2026; Bain Rule III |
+| THESIS-TWO | two main clauses in the thesis, each with its own subject | McCrimmon: "only one dominant idea" |
+| THESIS-COMPLEX | a clause hung on the thesis's main clause | McCrimmon: "preferably a simple sentence" |
+| THESIS-VAGUE | *things*, *issues*, *various*, *aspects* and their kin in the thesis | McCrimmon: "words which permit only one interpretation" |
+
+**Mark the thesis.** Put `<!-- thesis -->` on the line above the thesis.
+Markdown hides the mark, so readers never see it. The program tests the
+first sentence after the mark, prints it, and asks the restriction question
+for a person to answer. With no mark, the report says so and tests nothing.
+(Tom, 15 Oct 2026.)
 
 NO-TOPIC flags the sign of a detail, not the absence of a topic. A date can
 be the topic. The flag asks a person to look.
@@ -193,11 +202,6 @@ be the topic. The flag asks a person to look.
 
 ## Open
 
-- **A THESIS check.** The program would test the thesis sentence for one
-  main clause (unity) and for vague words such as *things*, *issues*,
-  *various* (precision). Restriction takes judgment; the program would ask.
-  How the program finds the thesis waits on the author: a hidden
-  `<!-- thesis -->` mark above it, or the first sentence after the opening.
 - **A block test.** Per Smith, judge a run of short paragraphs under one
   topic as one unit.
 
